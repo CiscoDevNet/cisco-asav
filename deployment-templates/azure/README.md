@@ -30,12 +30,13 @@ You can customize this file for your Azure deployment environment.
 }
 ```
 
+## Resources
+* Azure ASAv Deployment Template: [ASAv](ASAv9.14/asav/README.md)  |   [ASAV HA](ASAv9.14/asav-ha/README.md)
+
 ## References
 * [Software Downloads Home](https://software.cisco.com/download/home/286119613/type/280775065/release/9.14.1)
 * [ASAv deployment using VHD and ARM](https://www.cisco.com/c/en/us/td/docs/security/asa/asa910/asav/quick-start-book/asav-910-qsg/asav_azure.html#id_87923)
 * [Azure ASAv quick start guide](https://www.cisco.com/c/en/us/td/docs/security/asa/asa914/asav/getting-started/asav-914-gsg/asav_azure.html)
-* [ASAv in Azure](ASAv9.14/asav/README.md)
-* [ASAv HA in Azure](ASAv9.14/asav-ha/README.md) 
 
 ## Licensing Info
 This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](../../LICENSE) file for details.
