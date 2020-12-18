@@ -1,0 +1,462 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "AutoScaleManager": {
+                "inputs": {
+                    "function": {
+                        "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RG_NAME/providers/Microsoft.Web/sites/FUNCTIONAPPNAME/functions/AutoScaleManager"
+                    }
+                },
+                "runAfter": {},
+                "type": "Function"
+            },
+            "Check_if_Scaling_is_Required_or_Not": {
+                "actions": {
+                    "No_Action_required": {
+                        "inputs": {
+                            "runStatus": "Succeeded"
+                        },
+                        "runAfter": {},
+                        "type": "Terminate"
+                    }
+                },
+                "else": {
+                    "actions": {
+                        "Branch_based_on_Scale-In_or_Scale-Out_condition": {
+                            "actions": {
+                                "AsaScaleIn": {
+                                    "inputs": {
+                                        "body": "@body('AutoScaleManager')",
+                                        "function": {
+                                            "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RG_NAME/providers/Microsoft.Web/sites/FUNCTIONAPPNAME/functions/AsaScaleIn"
+                                        },
+                                        "retryPolicy": {
+                                            "type": "none"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "CleanupASAvConfiguration": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Function"
+                                },
+                                "CleanupASAvConfiguration": {
+                                    "inputs": {
+                                        "body": "@body('AutoScaleManager')",
+                                        "function": {
+                                            "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RG_NAME/providers/Microsoft.Web/sites/FUNCTIONAPPNAME/functions/CleanupASAvConfiguration"
+                                        },
+                                        "retryPolicy": {
+                                            "type": "none"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Delay_For_connection_Draining": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Function"
+                                },
+                                "Delay_For_connection_Draining": {
+                                    "inputs": {
+                                        "interval": {
+                                            "count": 5,
+                                            "unit": "Minute"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "stopNewConnections": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Wait"
+                                },
+                                "ScaleIn_Cooldown_time": {
+                                    "inputs": {
+                                        "interval": {
+                                            "count": 3,
+                                            "unit": "Minute"
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "AsaScaleIn": [
+                                            "Succeeded",
+                                            "Failed"
+                                        ]
+                                    },
+                                    "type": "Wait"
+                                },
+                                "stopNewConnections": {
+                                    "inputs": {
+                                        "body": "@body('AutoScaleManager')",
+                                        "function": {
+                                            "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RG_NAME/providers/Microsoft.Web/sites/FUNCTIONAPPNAME/functions/stopNewConnections"
+                                        },
+                                        "retryPolicy": {
+                                            "type": "none"
+                                        }
+                                    },
+                                    "runAfter": {},
+                                    "type": "Function"
+                                }
+                            },
+                            "else": {
+                                "actions": {
+                                    "Branch_based_on_Scale-Out_or_Invalid_condition": {
+                                        "actions": {
+                                            "AsaScaleOut": {
+                                                "inputs": {
+                                                    "body": "@body('AutoScaleManager')",
+                                                    "function": {
+                                                        "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RG_NAME/providers/Microsoft.Web/sites/FUNCTIONAPPNAME/functions/AsaScaleOut"
+                                                    },
+                                                    "retryPolicy": {
+                                                        "type": "none"
+                                                    }
+                                                },
+                                                "runAfter": {},
+                                                "type": "Function"
+                                            },
+                                            "Cooldown_time": {
+                                                "inputs": {
+                                                    "interval": {
+                                                        "count": 10,
+                                                        "unit": "Second"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Until": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "Wait"
+                                            },
+                                            "Delay": {
+                                                "inputs": {
+                                                    "interval": {
+                                                        "count": 4,
+                                                        "unit": "Minute"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Set_variable_2": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "Wait"
+                                            },
+                                            "Parse_JSON": {
+                                                "inputs": {
+                                                    "content": "@body('AutoScaleManager')",
+                                                    "schema": {
+                                                        "properties": {
+                                                            "COMMAND": {
+                                                                "type": "string"
+                                                            },
+                                                            "COUNT": {
+                                                                "type": "string"
+                                                            },
+                                                            "TYPE": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "AsaScaleOut": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "ParseJson"
+                                            },
+                                            "Set_variable": {
+                                                "inputs": {
+                                                    "name": "ASACOUNT",
+                                                    "value": "@int(body('Parse_JSON')?['COUNT'])"
+                                                },
+                                                "runAfter": {
+                                                    "Parse_JSON": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "SetVariable"
+                                            },
+                                            "Set_variable_2": {
+                                                "inputs": {
+                                                    "name": "SCALEOUTTYPE",
+                                                    "value": "@body('Parse_JSON')?['TYPE']"
+                                                },
+                                                "runAfter": {
+                                                    "Set_variable": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "SetVariable"
+                                            },
+                                            "Until": {
+                                                "actions": {
+                                                    "CheckASAvLicenseConfig": {
+                                                        "inputs": {
+                                                            "body": "@body('GetAsaPublicIp')",
+                                                            "function": {
+                                                                "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RG_NAME/providers/Microsoft.Web/sites/FUNCTIONAPPNAME/functions/CheckASAvLicenseConfig"
+                                                            },
+                                                            "retryPolicy": {
+                                                                "count": 3,
+                                                                "interval": "PT1M",
+                                                                "type": "fixed"
+                                                            }
+                                                        },
+                                                        "runAfter": {
+                                                            "ConfigureASAv": [
+                                                                "Succeeded"
+                                                            ]
+                                                        },
+                                                        "type": "Function"
+                                                    },
+                                                    "ConfigureASAv": {
+                                                        "inputs": {
+                                                            "body": "@body('GetAsaPublicIp')",
+                                                            "function": {
+                                                                "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RG_NAME/providers/Microsoft.Web/sites/FUNCTIONAPPNAME/functions/ConfigureASAv"
+                                                            }
+                                                        },
+                                                        "runAfter": {
+                                                            "Wait_for_ASA_to_Come_UP": [
+                                                                "Succeeded"
+                                                            ]
+                                                        },
+                                                        "type": "Function"
+                                                    },
+                                                    "Decrement_variable": {
+                                                        "inputs": {
+                                                            "name": "ASACOUNT",
+                                                            "value": 1
+                                                        },
+                                                        "runAfter": {
+                                                            "GetAsaPublicIp": [
+                                                                "Succeeded"
+                                                            ]
+                                                        },
+                                                        "type": "DecrementVariable"
+                                                    },
+                                                    "DeleteUnConfiguredASA": {
+                                                        "inputs": {
+                                                            "body": "@body('GetAsaPublicIp')",
+                                                            "function": {
+                                                                "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RG_NAME/providers/Microsoft.Web/sites/FUNCTIONAPPNAME/functions/DeleteUnConfiguredASA"
+                                                            },
+                                                            "retryPolicy": {
+                                                                "type": "none"
+                                                            }
+                                                        },
+                                                        "runAfter": {
+                                                            "ConfigureASAv": [
+                                                                "Failed",
+                                                                "TimedOut"
+                                                            ]
+                                                        },
+                                                        "type": "Function"
+                                                    },
+                                                    "DeleteUnConfiguredASA_2": {
+                                                        "inputs": {
+                                                            "body": "@body('GetAsaPublicIp')",
+                                                            "function": {
+                                                                "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RG_NAME/providers/Microsoft.Web/sites/FUNCTIONAPPNAME/functions/DeleteUnConfiguredASA"
+                                                            }
+                                                        },
+                                                        "runAfter": {
+                                                            "CheckASAvLicenseConfig": [
+                                                                "Failed"
+                                                            ]
+                                                        },
+                                                        "type": "Function"
+                                                    },
+                                                    "GetAsaPublicIp": {
+                                                        "inputs": {
+                                                            "body": {
+                                                                "COUNT": "@{variables('ASACOUNT')}",
+                                                                "TYPE": "@{variables('SCALEOUTTYPE')}"
+                                                            },
+                                                            "function": {
+                                                                "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RG_NAME/providers/Microsoft.Web/sites/FUNCTIONAPPNAME/functions/GetAsaPublicIp"
+                                                            }
+                                                        },
+                                                        "runAfter": {},
+                                                        "type": "Function"
+                                                    },
+                                                    "Wait_for_ASA_to_Come_UP": {
+                                                        "actions": {
+                                                            "Delay_2": {
+                                                                "inputs": {
+                                                                    "interval": {
+                                                                        "count": 20,
+                                                                        "unit": "Second"
+                                                                    }
+                                                                },
+                                                                "runAfter": {
+                                                                    "waitForAsaToComeUp": [
+                                                                        "Succeeded"
+                                                                    ]
+                                                                },
+                                                                "type": "Wait"
+                                                            },
+                                                            "waitForAsaToComeUp": {
+                                                                "inputs": {
+                                                                    "body": "@body('GetAsaPublicIp')",
+                                                                    "function": {
+                                                                        "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RG_NAME/providers/Microsoft.Web/sites/FUNCTIONAPPNAME/functions/waitForAsaToComeUp"
+                                                                    }
+                                                                },
+                                                                "runAfter": {},
+                                                                "type": "Function"
+                                                            }
+                                                        },
+                                                        "expression": "@contains(body('waitForAsaToComeUp'), 'READY')",
+                                                        "limit": {
+                                                            "count": 30,
+                                                            "timeout": "PT10M"
+                                                        },
+                                                        "runAfter": {
+                                                            "Decrement_variable": [
+                                                                "Succeeded"
+                                                            ]
+                                                        },
+                                                        "type": "Until"
+                                                    }
+                                                },
+                                                "expression": "@equals(variables('ASACOUNT'), 0)",
+                                                "limit": {
+                                                    "count": 100,
+                                                    "timeout": "PT3H"
+                                                },
+                                                "runAfter": {
+                                                    "Delay": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "Until"
+                                            }
+                                        },
+                                        "else": {
+                                            "actions": {
+                                                "Invalid_condition..Terminate": {
+                                                    "inputs": {
+                                                        "runError": {
+                                                            "code": "500",
+                                                            "message": "Return value in invalid"
+                                                        },
+                                                        "runStatus": "Failed"
+                                                    },
+                                                    "runAfter": {},
+                                                    "type": "Terminate"
+                                                }
+                                            }
+                                        },
+                                        "expression": {
+                                            "and": [
+                                                {
+                                                    "contains": [
+                                                        "@body('AutoScaleManager')",
+                                                        "SCALEOUT"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "runAfter": {},
+                                        "type": "If"
+                                    }
+                                }
+                            },
+                            "expression": {
+                                "and": [
+                                    {
+                                        "contains": [
+                                            "@body('AutoScaleManager')",
+                                            "SCALEIN"
+                                        ]
+                                    }
+                                ]
+                            },
+                            "runAfter": {},
+                            "type": "If"
+                        }
+                    }
+                },
+                "expression": {
+                    "and": [
+                        {
+                            "contains": [
+                                "@body('AutoScaleManager')",
+                                "NOACTION"
+                            ]
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_action_type": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "If"
+            },
+            "Initialize_action_type": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "SCALEOUTTYPE",
+                            "type": "String",
+                            "value": "none"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_counters_": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_counters_": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "ASACOUNT",
+                            "type": "Integer",
+                            "value": 0
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "AutoScaleManager": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {},
+        "triggers": {
+            "Recurrence": {
+                "conditions": [],
+                "inputs": {},
+                "recurrence": {
+                    "frequency": "Minute",
+                    "interval": 5
+                },
+                "runtimeConfiguration": {
+                    "concurrency": {
+                        "runs": 1
+                    }
+                },
+                "type": "Recurrence"
+            }
+        }
+    },
+    "parameters": {}
+}

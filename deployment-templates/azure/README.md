@@ -3,8 +3,8 @@
 ## Azure Deployment
 
 In addition to the Marketplace-based deployment, Cisco provides a compressed virtual hard disk (VHD) (that you can upload to Azure) and then use these ARM templates to deploy:
-* [ASAv](ASAv9.14/asav/README.md)
-* [ASAv HA](ASAv9.14/asav-ha/README.md) 
+* [ASAv](ASAv9.15/asav/README.md)
+* [ASAv HA](ASAv9.15/asav-ha/README.md)
 <br>
 Using an Image and two JSON files (a Template file and a Parameter File), you can deploy and provision all the resources for the ASAv and ASAv HA in a single, coordinated operation.<br>
 
@@ -31,12 +31,12 @@ You can customize this file for your Azure deployment environment.
 ```
 
 ## Resources
-* Azure ASAv Deployment Template: [ASAv](ASAv9.14/asav/README.md)  |   [ASAV HA](ASAv9.14/asav-ha/README.md)
+* Azure ASAv Deployment Template: [ASAv](ASAv9.15/asav/README.md)  |   [ASAV HA](ASAv9.15/asav-ha/README.md)
 
 ## References
-* [Software Downloads Home](https://software.cisco.com/download/home/286119613/type/280775065/release/9.14.1)
+* [Software Downloads Home](https://software.cisco.com/download/home/286119613/type/280775065/release/9.15.1)
 * [ASAv deployment using VHD and ARM](https://www.cisco.com/c/en/us/td/docs/security/asa/asa910/asav/quick-start-book/asav-910-qsg/asav_azure.html#id_87923)
-* [Azure ASAv quick start guide](https://www.cisco.com/c/en/us/td/docs/security/asa/asa914/asav/getting-started/asav-914-gsg/asav_azure.html)
+* [Azure ASAv quick start guide](https://www.cisco.com/c/en/us/td/docs/security/asa/asa915/asav/getting-started/asav-915-gsg/m_asav-azure.html)
 
 ## Licensing Info
 This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](../../LICENSE) file for details.
