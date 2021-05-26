@@ -22,11 +22,17 @@ Azure Resource Manager templates are JSON files that contain resource descriptio
 * Template file: This is the main resources file that deploys all the components within the resource group.
 * Parameter file: This file includes the parameters required to successfully deploy the ASAv.
 
+### Openstack Templates
+
+This repository conatains heat template files to deploy the Cisco Adaptive Security Virtual Appliance (ASAv)on OpenStack environment.
+
 ## Resources
 
 * Azure ASAv Deployment Template for ASAv 9.14: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.14/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.14/asav-ha/README.md)
 
 * Azure ASAv Deployment Template for ASAv 9.15: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.15/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.15/asav-ha/README.md)
+
+* Openstack ASAv Heat Deployment Template: [README](deployment-templates/openstack/README.md) | [ASAv](deployment-templates/openstack/ASAv/README.md)
 
 * ASAv Auto Scaling for Azure : [Code](autoscale/azure/ASAv9.15/)     |     [README](autoscale/azure/ASAv9.15/README.md)     |     [Deployment/Configuration Guide](autoscale/azure/ASAv9.15/asav_azure_autoscale_v915.pdf)
 
