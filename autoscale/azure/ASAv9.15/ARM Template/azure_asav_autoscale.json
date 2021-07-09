@@ -55,8 +55,9 @@
       },
       "softwareVersion": {
         "type": "string",
-        "defaultValue": "915.1.1",
+        "defaultValue": "9161.0.0",
         "allowedValues": [
+            "9161.0.0",
             "915.1.1",
             "914.1.30"
         ],
