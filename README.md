@@ -28,11 +28,11 @@ This repository conatains heat template files to deploy the Cisco Adaptive Secur
 
 ## Resources
 
-* Azure ASAv Deployment Template for ASAv 9.16: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.16/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.15/asav-ha/README.md)
+* Azure ASAv Deployment Template for ASAv 9.16: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.16/asav/README.md)  |   [ASAv HA](deployment-templates/azure/ASAv9.16/asav-ha/README.md)
 
-* Azure ASAv Deployment Template for ASAv 9.15: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.15/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.15/asav-ha/README.md)
+* Azure ASAv Deployment Template for ASAv 9.15: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.15/asav/README.md)  |   [ASAv HA](deployment-templates/azure/ASAv9.15/asav-ha/README.md)
 
-* Azure ASAv Deployment Template for ASAv 9.14: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.14/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.14/asav-ha/README.md)
+* Azure ASAv Deployment Template for ASAv 9.14: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.14/asav/README.md)  |   [ASAv HA](deployment-templates/azure/ASAv9.14/asav-ha/README.md)
 
 * Openstack ASAv Heat Deployment Template: [README](deployment-templates/openstack/README.md) | [ASAv](deployment-templates/openstack/ASAv/README.md)
 
