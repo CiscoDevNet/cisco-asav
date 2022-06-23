@@ -1,0 +1,38 @@
+! Default route via outside
+route outside 0.0.0.0 0.0.0.0 <Outside Subner GW> 2
+
+! Health Check Configuration
+object network metadata-server
+host 169.254.169.254
+object service health-check-port
+service tcp destination eq 8080
+object service http-port
+service tcp destination eq 80
+route inside 169.254.169.254 255.255.255.255 <Inside Subnet GW> 1
+
+! Outbound health check
+nat (outside,inside) source static any interface destination static interface metadata-server service health-check-port http-port
+
+!Inbound health check
+nat (inside,outside) source static any interface destination static interface metadata-server service health-check-port http-port
+
+! Inbound NAT
+object network outside-subnet
+subnet 10.10.2.0 255.255.255.0
+object network http-server-80
+host 10.10.1.175
+nat (outside,inside) source static outside-subnet interface destination static interface http-server-80
+
+! Inbound https traffic
+object service https-port
+service tcp destination eq 443
+object network https-server
+host 10.20.0.118
+nat (outside,inside) source static outside-subnet interface destination static interface https-server
+
+object network inside-subnet
+subnet 10.10.1.0 255.255.255.0
+object network external-server
+host 10.10.2.21
+nat (inside,outside) source static inside-subnet interface destination static interface external-server
+!

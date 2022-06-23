@@ -1,0 +1,129 @@
+heat_template_version: 2013-05-23
+description: ASAv template
+
+parameters:
+   asav_flavor_name:
+      type: string
+      default: asav_flavor
+
+   glance_asav_image_name:
+      type: string
+      default: asav_image
+
+   asav_secgroup_name:
+      type: string
+      default: asav_secgroup
+
+   mgmt_net_name:
+      type: string
+      default: mgmt_network
+
+   inside_net_name:
+      type: string
+      default: inside_network
+
+   outside_net_name:
+      type: string
+      default: outside_network
+
+   ext_net_name:
+      type: string
+      default: ext_network
+
+   mgmt_subnet_name:
+      type: string
+      default: mgmt_subnet
+
+resources:
+   asav_flav_res:
+      type: OS::Nova::Flavor
+      properties:
+         name: { get_param: asav_flavor_name }
+         ram: 16384
+         vcpus: 8
+         disk: 10
+
+   asav_sec_grp:
+      type: OS::Neutron::SecurityGroup
+      properties:
+         name: { get_param: asav_secgroup_name}
+         rules:
+            - { direction: ingress, ethertype: IPv4 }
+            - { direction: egress, ethertype: IPv4 }
+            - { direction: ingress, ethertype: IPv6 }
+            - { direction: egress, ethertype: IPv6 }
+            - { direction: ingress, protocol: icmp, remote_ip_prefix: 0.0.0.0/0 }
+            - { direction: egress, protocol: icmp, remote_ip_prefix: 0.0.0.0/0 }
+            - { direction: ingress, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 0.0.0.0/0}
+            - { direction: ingress, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 0.0.0.0/0}
+            - { direction: ingress, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 0.0.0.0/0}
+   asav_float_ip:
+      type: OS::Neutron::FloatingIP
+      properties:
+         floating_network: { get_param: ext_net_name }
+         port_id: { get_resource: mgmt_port}
+
+   mgmt_port:
+      type: OS::Neutron::Port
+      properties:
+         name: mgmt_asav_port
+         network: { get_param: mgmt_net_name }
+         security_groups: [{ get_resource: asav_sec_grp}]
+         fixed_ips:
+            - subnet: { get_param: mgmt_subnet_name }
+
+   in_port:
+      type: OS::Neutron::Port
+      properties:
+         name: in_asav_port
+         network: { get_param: inside_net_name }
+         port_security_enabled: false
+
+   out_port:
+      type: OS::Neutron::Port
+      properties:
+         name: out_asav_port
+         network: { get_param: outside_net_name }
+         port_security_enabled: false
+
+   asav:
+      type: OS::Nova::Server
+      properties:
+         flavor: { get_resource: asav_flav_res} 
+         image: { get_param: glance_asav_image_name }
+         name: os-asav1-vm
+         networks:
+            - port: { get_resource: mgmt_port }
+            - port: { get_resource : in_port }
+            - port: { get_resource: out_port }
+         config_drive: true
+         user_data_format: RAW
+         user_data: |
+            {
+            ! ASA Version
+            interface management0/0
+            nameif management
+            security-level 100
+            ip address dhcp setroute
+            no shutdown
+            !
+            crypto key generate rsa modulus 2048
+            ssh 0 0 management
+            ssh version 2
+            ssh timeout 30
+            ssh key-exchange group dh-group14-sha1
+            username admin password Admin123 privilege 15
+            username admin attributes
+            service-type admin
+            aaa authentication ssh console LOCAL
+            }
+
+outputs:
+   server_ip:
+      description: asav mgmt ip address
+      value: { get_attr: [asav, networks, { get_param: mgmt_net_name }, 0]}
+
+   floating_ip:
+      description: asav Floating IP addres
+      value: { get_attr: [ asav_float_ip, floating_ip_address ] }
+
