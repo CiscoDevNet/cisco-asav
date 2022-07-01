@@ -1,0 +1,11 @@
+imports:
+- path: pre_deployment.jinja
+resources:
+- name: pre_deployment
+  type: pre_deployment.jinja 
+  properties:
+    resourceNamePrefix: <resourceNamePrefix>
+    region: <region>
+    serviceAccountMailId: <serviceAccountMailId>
+    vpcConnectorName: <VPC-Connector-Name>
+    bucketName: <bucketName>

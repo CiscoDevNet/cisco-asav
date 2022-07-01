@@ -11,7 +11,6 @@ Some of the key features of the ASAv Auto Scale for Azure implementation include
 *	Supports ASAv deployment in Multi-availability zones
 *	Support for Enabling / Disabling Auto Scaling feature
 *	Azure Resource Manager (ARM) template based deployment 
-*	Support to deploy ASAv with PAYG licensing mode 
 
 ## Deployment
 

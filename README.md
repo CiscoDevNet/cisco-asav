@@ -40,6 +40,8 @@ This repository conatains heat template files to deploy the Cisco Adaptive Secur
 
 * For OCI on ASAv 9.17 and above: [Code](autoscale/oci/)     |     [README](autoscale/oci/README.md)     |     [Deployment/Configuration Guide](autoscale/oci/ASAv_Auto_Scale_Solution_on_OCI.pdf)
 
+* For GCP on ASAv 9.17 and above: [Code](autoscale/gcp/)     |     [README](autoscale/gcp/README.md)     |     [Deployment/Configuration Guide](autoscale/gcp/asav_gcp_autoscale.pdf)
+
 ### Cloud Service Integration    
 
 * AWS Guardduty: [Code](cloud-service-integration/aws/guardduty/)     |     [README](cloud-service-integration/aws/guardduty/README.md)     |     [Deployment/Configuration Guide](cloud-service-integration/aws/guardduty/Cisco_ASAv_AWS_GuardDuty_Integration_User_Configuration_Guide.pdf)
