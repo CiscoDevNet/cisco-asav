@@ -1,0 +1,266 @@
+########################################################################################
+#Copyright (c) 2021 Cisco Systems Inc or its affiliates.                               #
+#All Rights Reserved.                                                                  #
+#Licensed under the Apache License, Version 2.0 (the "License");                       #
+#you may not use this file except in compliance with the License.                      #
+#You may obtain a copy of the License at                                               #
+#http://www.apache.org/licenses/LICENSE-2.0                                            #
+#Unless required by applicable law or agreed to in writing, software                   #
+#distributed under the License is distributed on an "AS IS" BASIS,                     #
+#WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.              #
+#See the License for the specific language governing permissions and                   #
+#limitations under the License.                                                        #
+########################################################################################
+# File: template.jinja                                                                 #
+# Purpose: Will create all the required resources for the Autoscale Feature in GCP.    #
+########################################################################################
+#                                                                                      #
+# Change <parameter> accordingly.                                                      #
+#                                                                                      #
+########################################################################################
+{% set BASE_URL = 'https://www.googleapis.com/compute/v1' %}
+resources:
+# Instance Template
+- name: {{ properties["resourceNamePrefix"] }}-asav-instance-template
+  type: compute.v1.instanceTemplate
+  properties:
+    properties:
+      tags:
+        items:
+          - {{ properties["insideFirewallRuleName"] }}
+          - {{ properties["outsideFirewallRuleName"] }}
+          - {{ properties["mgmtFirewallRuleName"] }}
+          - {{ properties["healthCheckFirewallRuleName"] }}
+      machineType: {{ properties["machineType"] }}
+      canIpForward: true
+      disks:
+      - deviceName: boot
+        type: PERSISTENT
+        boot: true
+        autoDelete: true
+        initializeParams:
+          sourceImage: {{ properties["sourceImageURL"] }}
+          diskType: pd-standard
+          diskSizeGb: 10
+      networkInterfaces:
+        - name: nic0
+          network: projects/{{ env["project"] }}/global/networks/{{ properties["outsideVPCName"] }}
+          subnetwork: projects/{{ env["project"] }}/regions/{{ properties["region"] }}/subnetworks/{{ properties["outsideVPCSubnet"] }}
+          kind: compute#networkInterface
+        - name: nic1
+          network: projects/{{ env["project"] }}/global/networks/{{ properties["insideVPCName"] }}
+          subnetwork: projects/{{ env["project"] }}/regions/{{ properties["region"] }}/subnetworks/{{ properties["insideVPCSubnet"] }}
+          kind: compute#networkInterface
+        - name: nic2
+          network: projects/{{ env["project"] }}/global/networks/{{ properties["mgmtVPCName"] }}
+          # External IP for Management if the User wants it
+          #accessConfigs:
+           #- name: External NAT
+             #type: ONE_TO_ONE_NAT
+          subnetwork: projects/{{ env["project"] }}/regions/{{ properties["region"] }}/subnetworks/{{ properties["mgmtVPCSubnet"] }}
+          kind: compute#networkInterface
+      reservationAffinity:
+        consumeReservationType: ANY_RESERVATION
+      metadata:
+        kind: compute#metadata
+        items:
+          - value: |-
+                !ASA Version 9.15.1.10
+                !Interface Config
+                interface G0/0
+                nameif inside
+                security-level 100
+                ip address dhcp setroute
+                no shutdown
+
+                interface G0/1
+                nameif management
+                security-level 50
+                ip address dhcp setroute
+                no shutdown
+
+                interface M0/0
+                no management-only
+                nameif outside
+                security-level 0
+                ip address dhcp setroute
+                no shutdown
+                !
+                same-security-traffic permit inter-interface
+                !
+                !Due to load balancer limitation in GCP, 
+                !"GigabitEthernet0/1" will be used as a Management interface 
+                !"Management0/0" will be used as a data interface
+                crypto key generate rsa modulus 2048
+                ssh 0.0.0.0 0.0.0.0 management
+                ssh version 2
+                ssh timeout 60
+                aaa authentication ssh console LOCAL
+                !ssh authentication publickey {{ properties["publicKey"] }}
+                username admin privilege 15
+                username admin attributes
+                service-type admin
+
+                ! required config end
+                dns domain-lookup outside
+                dns server-group DefaultDNS
+                name-server 8.8.8.8
+                !
+                access-list all extended permit ip any any
+                access-list out standard permit any4
+                access-group all global
+                ! Objects
+                object network metadata
+                host 169.254.169.254
+                object network ilb
+                host $(ref.{{ properties["resourceNamePrefix"] }}-ilb-ip.address)
+                object network hc1
+                subnet 35.191.0.0 255.255.0.0
+                object network hc2
+                subnet 130.211.0.0 255.255.63.0
+                object network elb
+                host $(ref.{{ properties["resourceNamePrefix"] }}-elb-ip.address)
+                object network appServer
+                host <Application server IP address>
+                object network defaultGateway
+                subnet 0.0.0.0 0.0.0.0
+                ! Nat Rules
+                nat (inside,outside) source dynamic hc1 ilb destination static ilb metadata
+                nat (inside,outside) source dynamic hc2 ilb destination static ilb metadata
+                nat (inside,outside) source dynamic defaultGateway interface
+                !
+                object network appServer
+                nat (inside,outside) static $(ref.{{ properties["resourceNamePrefix"] }}-elb-ip.address)
+                object network defaultGateway
+                nat (outside,inside) dynamic interface
+                ! Route Add
+                route inside 0.0.0.0 0.0.0.0 <Inside VPC Gateway IP address> 2
+                route management 0.0.0.0 0.0.0.0 <Management VPC Gateway IP address> 3
+                call-home
+                profile License
+                destination transport-method http
+                destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
+                license smart
+                feature tier standard
+                throughput level 2G
+                debug menu license 25 production
+                license smart register idtoken <licenseIDToken> force
+            key: startup-script
+          - value: {{ properties["publicKey"] }}
+            key: ssh-keys
+      scheduling:
+        onHostMaintenance: MIGRATE
+        automaticRestart: true
+      serviceAccounts: 
+        - email: {{ properties["serviceAccountMailId"] }}
+          scopes:
+          - https://www.googleapis.com/auth/devstorage.read_only
+          - https://www.googleapis.com/auth/logging.write
+          - https://www.googleapis.com/auth/monitoring.write
+          - https://www.googleapis.com/auth/service.management.readonly
+          - https://www.googleapis.com/auth/servicecontrol
+          - https://www.googleapis.com/auth/trace.append
+# Instance Group
+- name: {{ properties["resourceNamePrefix"] }}-asav-instance-group
+  type: compute.v1.regionInstanceGroupManager
+  properties:
+    region: {{ properties["region"] }}
+    # DISTRIBUTIONPOLICY MAY VARY ACCORDING TO NUMBER OF ZONES IN A PARTICULAR REGION, CURRENT REGION HAS 4 ZONES.
+    distributionPolicy:
+      zones:
+        - zone: {{ BASE_URL }}/projects/{{ env["project"] }}/zones/{{ properties["region"] }}-a
+        - zone: {{ BASE_URL }}/projects/{{ env["project"] }}/zones/{{ properties["region"] }}-b
+        - zone: {{ BASE_URL }}/projects/{{ env["project"] }}/zones/{{ properties["region"] }}-c
+    instanceTemplate: $(ref.{{ properties["resourceNamePrefix"] }}-asav-instance-template.selfLink)
+    baseInstanceName: {{ properties["resourceNamePrefix"] }}-asav-instance
+    targetSize: {{ properties["targetSize"] }}
+# Autoscaler
+- name: {{ properties["resourceNamePrefix"] }}-asav-autoscaler
+  type: compute.v1.regionAutoscaler
+  properties:
+    target: $(ref.{{ properties["resourceNamePrefix"] }}-asav-instance-group.selfLink)
+    region: {{ properties["region"] }}
+    autoscalingPolicy:
+      cpuUtilization:
+        utilizationTarget: {{ properties["cpuUtilizationTarget"] }}
+      mode: 'ON'
+      coolDownPeriodSec: {{ properties["coolDownPeriodSec"] }}
+      minNumReplicas: {{ properties["minASACount"] }}
+      maxNumReplicas: {{ properties["maxASACount"] }}
+# ELB Services
+- name: {{ properties["resourceNamePrefix"] }}-asav-backend-service-elb
+  type: compute.v1.regionBackendService
+  properties:
+    region: {{ properties["region"] }}
+    port: {{ properties["elbPort"] }}
+    portName: {{ properties["elbPortName"] }}
+    protocol: {{ properties["elbProtocol"] }}
+    loadBalancingScheme: EXTERNAL
+    backends:
+    - name: {{ properties["resourceNamePrefix"] }}-asav-backend-service-elb-backends
+      group: $(ref.{{ properties["resourceNamePrefix"] }}-asav-instance-group.instanceGroup)
+    healthChecks: 
+    - $(ref.{{ properties["resourceNamePrefix"] }}-asav-hc-elb.selfLink)
+- name: {{ properties["resourceNamePrefix"] }}-asav-hc-elb
+  type: compute.v1.regionHealthChecks
+  properties:
+    region: {{ properties["region"] }}
+    tcpHealthCheck:
+      port: {{ properties["elbPort"] }}
+      proxyHeader: NONE
+    timeoutSec: {{ properties["elbTimeoutSec"] }}
+    type: {{ properties["elbProtocolName"] }}
+    unhealthyThreshold: {{ properties["elbUnhealthyThreshold"] }}
+- name: {{ properties["resourceNamePrefix"] }}-asav-fr-elb
+  type: compute.v1.forwardingRule
+  properties:
+    IPProtocol: {{ properties["elbIpProtocol"] }}
+    IPAddress: $(ref.{{ properties["resourceNamePrefix"] }}-elb-ip.address)
+    backendService: $(ref.{{ properties["resourceNamePrefix"] }}-asav-backend-service-elb.selfLink)
+    loadBalancingScheme: EXTERNAL
+    region: {{ properties["region"] }}
+    portRange: {{ properties["elbPortRange"] }}
+- name: {{ properties["resourceNamePrefix"] }}-elb-ip
+  type: compute.v1.address
+  properties:
+    addressType: EXTERNAL
+    region: {{ properties["region"] }}
+# ILB Services
+- name: {{ properties["resourceNamePrefix"] }}-asav-backend-service-ilb
+  type: compute.v1.regionBackendService
+  properties:
+    region: {{ properties["region"] }}
+    protocol: {{ properties["ilbProtocol"] }}
+    loadBalancingScheme: INTERNAL
+    backends:
+    - group: $(ref.{{ properties["resourceNamePrefix"] }}-asav-instance-group.instanceGroup)
+    healthChecks:
+    - $(ref.{{ properties["resourceNamePrefix"] }}-asav-hc-ilb.selfLink)
+    connectionDraining:
+      drainingTimeoutSec: {{ properties["ilbDrainingTimeoutSec"] }}
+    network: projects/{{ env["project"] }}/global/networks/{{ properties["insideVPCName"] }}
+- name: {{ properties["resourceNamePrefix"] }}-asav-hc-ilb
+  type: compute.v1.healthCheck
+  properties:
+    tcpHealthCheck:
+      port: {{ properties["ilbPort"] }}
+    checkIntervalSec: {{ properties["ilbCheckIntervalSec"] }}
+    timeoutSec: {{ properties["ilbTimeoutSec"] }}
+    type: {{ properties["ilbProtocolName"] }}
+    unhealthyThreshold: {{ properties["ilbUnhealthyThreshold"] }}
+- name: {{ properties["resourceNamePrefix"] }}-asav-fr-ilb
+  type: compute.v1.forwardingRule
+  properties:
+    region: {{ properties["region"] }}
+    allPorts: true
+    loadBalancingScheme: INTERNAL
+    IPAddress: $(ref.{{ properties["resourceNamePrefix"] }}-ilb-ip.selfLink)
+    backendService: $(ref.{{ properties["resourceNamePrefix"] }}-asav-backend-service-ilb.selfLink)
+    network: projects/{{ env["project"] }}/global/networks/{{ properties["insideVPCName"] }}
+    subnetwork: projects/{{ env["project"] }}/regions/{{ properties["region"] }}/subnetworks/{{ properties["insideVPCSubnet"] }}
+- name: {{ properties["resourceNamePrefix"] }}-ilb-ip
+  type: compute.v1.address
+  properties:
+    addressType: INTERNAL
+    region: {{ properties["region"] }}
+    subnetwork: projects/{{ env["project"] }}/regions/{{ properties["region"] }}/subnetworks/{{ properties["insideVPCSubnet"] }}

@@ -1,0 +1,74 @@
+resources:
+# Sink (Logs Router)
+- name: {{ properties["resourceNamePrefix"] }}-asav-insert-sink
+  type: gcp-types/logging-v2:projects.sinks
+  properties:
+    sink: {{ properties["resourceNamePrefix"] }}-asav-insert-sink
+    destination: pubsub.googleapis.com/$(ref.{{ properties["resourceNamePrefix"] }}-asav-pubsub-topic-insert.name)
+    filter: resource.type = "gce_instance" AND protoPayload.methodName = "v1.compute.instances.insert" AND operation.last = "true" AND protoPayload.resourceName:"{{ properties["resourceNamePrefix"] }}"
+    writerIdentity: {{ properties["serviceAccountMailId"] }}
+# Pub/Sub Topic
+- name: {{ properties["resourceNamePrefix"] }}-asav-pubsub-topic-insert
+  type: pubsub.v1.topic
+  properties:
+    topic: {{ properties["resourceNamePrefix"] }}-asav-pubsub-topic-insert
+  accessControl:
+    gcpIamPolicy:
+      bindings:
+      - members:
+        - serviceAccount:cloud-logs@system.gserviceaccount.com
+        role: roles/pubsub.publisher
+
+#Cloud Function(insert)
+# To copy code to storage bucket
+#gsutil cp <change_pass.zip> gs://<bucket-name>/
+- name: {{ properties["resourceNamePrefix"] }}-asav-scaleout-action
+  type: gcp-types/cloudfunctions-v1:projects.locations.functions
+  properties:
+    parent: projects/{{ env['project'] }}/locations/{{ properties['region'] }}
+    function: {{ properties["resourceNamePrefix"] }}-asav-scaleout-action
+    sourceArchiveUrl: gs://{{ properties["bucketName"] }}/scaleout-action.zip
+    entryPoint: change_pass
+    runtime: python37
+    timeout: 300s
+    vpcConnector: {{ properties["vpcConnectorName"] }}
+    vpcConnectorEgressSettings: PRIVATE_RANGES_ONLY
+    ingressSettings: ALLOW_ALL
+    eventTrigger:
+      resource: $(ref.{{ properties["resourceNamePrefix"] }}-asav-pubsub-topic-insert.name)
+      eventType: google.pubsub.topic.publish
+# Sink (Logs Router)
+- name: {{ properties["resourceNamePrefix"] }}-asav-delete-sink
+  type: gcp-types/logging-v2:projects.sinks
+  properties:
+    sink: {{ properties["resourceNamePrefix"] }}-asav-delete-sink
+    destination: pubsub.googleapis.com/$(ref.{{ properties["resourceNamePrefix"] }}-asav-pubsub-topic-delete.name)
+    filter: resource.type = "gce_instance" AND protoPayload.methodName = "v1.compute.instances.delete" AND protoPayload.resourceName:"{{ properties["resourceNamePrefix"] }}" AND operation.first="true"
+    writerIdentity: {{ properties["serviceAccountMailId"] }}
+# Pub/Sub Topic
+- name: {{ properties["resourceNamePrefix"] }}-asav-pubsub-topic-delete
+  type: pubsub.v1.topic
+  properties:
+    topic: {{ properties["resourceNamePrefix"] }}-asav-pubsub-topic-delete
+  accessControl:
+    gcpIamPolicy:
+      bindings:
+      - members:
+        - serviceAccount:cloud-logs@system.gserviceaccount.com
+        role: roles/pubsub.publisher
+#Cloud Function(delete)
+- name: {{ properties["resourceNamePrefix"] }}-asav-scalein-action
+  type: gcp-types/cloudfunctions-v1:projects.locations.functions
+  properties:
+    parent: projects/{{ env['project'] }}/locations/{{ properties['region'] }}
+    function: {{ properties["resourceNamePrefix"] }}-asav-scalein-action
+    sourceArchiveUrl: gs://{{ properties["bucketName"] }}/scalein-action.zip
+    entryPoint: lic_dereg
+    runtime: python37
+    timeout: 300s
+    vpcConnector: {{ properties['vpcConnectorName'] }}
+    vpcConnectorEgressSettings: PRIVATE_RANGES_ONLY
+    ingressSettings: ALLOW_ALL
+    eventTrigger:
+      resource: $(ref.{{ properties["resourceNamePrefix"] }}-asav-pubsub-topic-delete.name)
+      eventType: google.pubsub.topic.publish

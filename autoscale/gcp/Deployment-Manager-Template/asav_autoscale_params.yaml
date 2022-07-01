@@ -1,0 +1,74 @@
+########################################################################################
+#Copyright (c) 2021 Cisco Systems Inc or its affiliates.                               #
+#All Rights Reserved.                                                                  #
+#Licensed under the Apache License, Version 2.0 (the "License");                       #
+#you may not use this file except in compliance with the License.                      #
+#You may obtain a copy of the License at                                               #
+#http://www.apache.org/licenses/LICENSE-2.0                                            #
+#Unless required by applicable law or agreed to in writing, software                   #
+#distributed under the License is distributed on an "AS IS" BASIS,                     #
+#WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.              #
+#See the License for the specific language governing permissions and                   #
+#limitations under the License.                                                        #
+########################################################################################
+# File: template_parameters.yaml                                                       #
+# Purpose: To provide Parameters to template.jinja for the Autoscale Feature in GCP.   #
+########################################################################################
+#                                                                                      #
+# USER should have a minimum of 3 VPC Networks(INSIDE,OUTSIDE,MGMT).                   #
+# USER should have a VPC Connector with a /28 subnetwork in OUTSIDE VPC Network.       #
+# Change <parameter> with your existing resources.                                     #
+# Other parameters can be changed accordingly.                                         #
+#                                                                                      #
+########################################################################################
+
+imports:
+- path: asav_autoscale.jinja
+resources:
+- name: asav_autoscale_params
+  type: asav_autoscale.jinja 
+  properties:
+    resourceNamePrefix: <resourceNamePrefix>
+    region: <region>
+    serviceAccountMailId: <serviceAccountMailId>
+    publicKey: <publicKey>
+    #VPC Details
+    insideVPCName: <Inside-VPC-Name>
+    insideVPCSubnet: <Inside-VPC-Subnet>
+    outsideVPCName: <Outside-VPC-Name>
+    outsideVPCSubnet: <Outside-VPC-Subnet>
+    mgmtVPCName: <Mgmt-VPC-Name>
+    mgmtVPCSubnet: <Mgmt-VPC-Subnet>
+    # Firewall Details
+    insideFirewallRuleName: <Inside-Network-Firewall-Tag>
+    outsideFirewallRuleName: <Outside-Network-Firewall-Tag>
+    mgmtFirewallRuleName: <Mgmt-Network-Firewall-Tag>
+    healthCheckFirewallRuleName: <HealthCheck-IP-Firewall-Tag>
+    # Instance Templates
+    machineType: <machineType>    #e2-standard-4
+    #Image URL should be of the format 
+    #  https://www.googleapis.com/compute/v1/projects/<proj-name>/global/images/<image-name>
+    sourceImageURL: https://www.googleapis.com/compute/v1/projects/cisco-public/global/images/cisco-asav-9-15-1-15
+    targetSize: 1
+    # ASAv Autoscaler
+    cpuUtilizationTarget: 0.5  # Percentage
+    coolDownPeriodSec: 30
+    minASACount: 1
+    maxASACount: 3
+    # ELB Services
+    elbPort: 80
+    elbPortName: tcp
+    elbProtocol: TCP
+    elbTimeoutSec: 5
+    elbProtocolName: TCP
+    elbUnhealthyThreshold: 2  # Count
+    elbIpProtocol: TCP
+    elbPortRange: 80-80
+    # ILB Services
+    ilbProtocol: TCP
+    ilbDrainingTimeoutSec: 60
+    ilbPort: 80
+    ilbCheckIntervalSec: 10
+    ilbTimeoutSec: 5
+    ilbProtocolName: TCP
+    ilbUnhealthyThreshold: 3
