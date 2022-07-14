@@ -3,6 +3,8 @@
 google-api-python-client==1.6.6
 google-auth==1.28.0
 google-auth-httplib2==0.1.0
-paramiko==2.7.2
+paramiko==2.11.0
 oauth2client==3.0.0
 google-cloud-secret-manager==2.3.0
+cryptography==36.0.2
+warn==0.1.0

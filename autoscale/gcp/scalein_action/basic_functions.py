@@ -27,7 +27,7 @@ def establishingConnection(ip, user, pKey, minutes, password):
      
      for i in range(6*minutes):
           try:
-               ssh.connect(ip, username=user, pkey=pKey, timeout=10)
+               ssh.connect(ip, username=user, pkey=pKey, timeout=10, disabled_algorithms=dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"]))
                channel = ssh.invoke_shell()
                resp = channel.recv(9999)
                print(resp.decode("utf-8"))
@@ -43,24 +43,24 @@ def establishingConnection(ip, user, pKey, minutes, password):
                     return 'SUCCESS',channel,ssh
                time.sleep(10)
           except paramiko.AuthenticationException as exc:
-               logging.info("Exception occurred: AuthenticationException {}".format(repr(exc)))
-               logging.info(str(i),". Sleeping for 10 seconds")
+               print("Exception occurred: AuthenticationException {}".format(repr(exc)))
+               print(str(i),". Sleeping for 10 seconds")
                time.sleep(10)
           except paramiko.BadHostKeyException as exc:
-               logging.info("Exception(un-known) occurred: BadHostKeyException {}".format(repr(exc)))
-               logging.info(str(i),". Sleeping for 10 seconds")
+               print("Exception(un-known) occurred: BadHostKeyException {}".format(repr(exc)))
+               print(str(i),". Sleeping for 10 seconds")
                time.sleep(10)
           except paramiko.SSHException as exc:
-               logging.info("Exception(un-known) occurred: SSHException {}".format(repr(exc)))
-               logging.info(str(i),". Sleeping for 10 seconds")
+               print("Exception(un-known) occurred: SSHException {}".format(repr(exc)))
+               print(str(i),". Sleeping for 10 seconds")
                time.sleep(10)
           except BaseException as exc:
                #for timeout
-               #logging.info("Exception(un-known) occurred: BaseException {}".format(repr(exc)))
+               #print("Exception(un-known) occurred: BaseException {}".format(repr(exc)))
                print(str(i),". Sleeping for 10 seconds.BaseException")
                time.sleep(10)
 
-     logging.info("Timeout after ", minutes, " minutes.")
+     print("Timeout after ", minutes, " minutes.")
      return
 
 def responseMsg(channel):

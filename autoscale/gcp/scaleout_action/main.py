@@ -21,11 +21,15 @@ import json
 from googleapiclient import discovery
 import basic_functions as bf 
 import os
-import paramiko
+import warnings
+from cryptography.utils import CryptographyDeprecationWarning
+with warnings.catch_warnings():
+     warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
+     import paramiko
 try:
      from StringIO import StringIO
 except ImportError:
-    from io import StringIO
+     from io import StringIO
 
 def change_pass(data, context):
      """Triggered from a message on a Cloud Pub/Sub topic.
