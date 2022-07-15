@@ -29,7 +29,7 @@ resources:
     function: {{ properties["resourceNamePrefix"] }}-asav-scaleout-action
     sourceArchiveUrl: gs://{{ properties["bucketName"] }}/scaleout-action.zip
     entryPoint: change_pass
-    runtime: python37
+    runtime: python39
     timeout: 300s
     vpcConnector: {{ properties["vpcConnectorName"] }}
     vpcConnectorEgressSettings: PRIVATE_RANGES_ONLY
@@ -64,7 +64,7 @@ resources:
     function: {{ properties["resourceNamePrefix"] }}-asav-scalein-action
     sourceArchiveUrl: gs://{{ properties["bucketName"] }}/scalein-action.zip
     entryPoint: lic_dereg
-    runtime: python37
+    runtime: python39
     timeout: 300s
     vpcConnector: {{ properties['vpcConnectorName'] }}
     vpcConnectorEgressSettings: PRIVATE_RANGES_ONLY

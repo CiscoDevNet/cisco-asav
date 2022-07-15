@@ -48,7 +48,8 @@ resources:
     machineType: <machineType>    #e2-standard-4
     #Image URL should be of the format 
     #  https://www.googleapis.com/compute/v1/projects/<proj-name>/global/images/<image-name>
-    sourceImageURL: https://www.googleapis.com/compute/v1/projects/cisco-public/global/images/cisco-asav-9-15-1-15
+    #  https://www.googleapis.com/compute/v1/projects/cisco-public/global/images/cisco-asav-9-18-1
+    sourceImageURL: <sourceImageURL>
     targetSize: 1
     # ASAv Autoscaler
     cpuUtilizationTarget: 0.5  # Percentage
