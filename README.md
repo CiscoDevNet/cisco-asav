@@ -38,9 +38,9 @@ This repository conatains heat template files to deploy the Cisco Adaptive Secur
 
 * For AWS on ASAv 9.15 and above: [Code](autoscale/aws/)     |     [README](autoscale/aws/README.md)     |     [Deployment/Configuration Guide](autoscale/aws/asav_aws_autoscale.pdf)
 
-* For OCI on ASAv 9.17 and above: [Code](autoscale/oci/)     |     [README](autoscale/oci/README.md)     |     [Deployment/Configuration Guide](autoscale/oci/ASAv_Auto_Scale_Solution_on_OCI.pdf)
-
 * For GCP on ASAv 9.17 and above: [Code](autoscale/gcp/)     |     [README](autoscale/gcp/README.md)     |     [Deployment/Configuration Guide](autoscale/gcp/asav_gcp_autoscale.pdf)
+
+* For OCI on ASAv 9.17 and above: [Code](autoscale/oci/)     |     [README](autoscale/oci/README.md)     |     [Deployment/Configuration Guide](autoscale/oci/ASAv_Auto_Scale_Solution_on_OCI.pdf)
 
 ### Cloud Service Integration    
 
@@ -49,6 +49,7 @@ This repository conatains heat template files to deploy the Cisco Adaptive Secur
 
 ### Deployment Template
 * Azure ASAv Deployment Template:
+    * For ASAv 9.18: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.18/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.18/asav-ha/README.md)
     * For ASAv 9.17: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.17/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.17/asav-ha/README.md)
     * For ASAv 9.16: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.16/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.16/asav-ha/README.md)
     * For ASAv 9.15: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.15/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.15/asav-ha/README.md)
