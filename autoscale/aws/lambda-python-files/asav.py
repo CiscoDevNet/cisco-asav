@@ -141,6 +141,29 @@ class ASAvInstance(CiscoEc2Instance):
         logger.info("Failed to connect to device retrying... ")
         return "TIMEOUT"
 
+    # Function to set hostname with retries
+    def configure_hostname_with_timeout(self, minutes):
+        """
+        Purpose:    To poll ASAv for and set Hostname
+        Parameters: Minutes
+        Returns:    SUCCESS, FAIL
+        Raises:
+        """
+        logger.info("Configure ASAv Hostname")
+        if minutes <= 1:
+            minutes = 2
+        for i in range(1, 2 * minutes):
+            if i != ((2 * minutes) - 1):
+                status = self.configure_hostname()
+                if status != "SUCCESS":
+                    logger.debug(str(i) + " Sleeping for 30 seconds")
+                    time.sleep(1 * 30)
+                else:
+                    logger.info("Successfully Configured Hostname")
+                    return "SUCCESS"
+        logger.info("Failed to configure Hostname ")
+        return self.FAIL
+
     # function to set hostname
     def configure_hostname(self):
         """
@@ -590,7 +613,7 @@ class ParamikoSSH:
         if self.verify_server_ip() == 'FAILURE':
             return self.FAIL
         try:
-            self.ssh.connect(self.server, self.port, username, password, timeout=10)
+            self.ssh.connect(self.server, self.port, username, password, timeout=60, banner_timeout=200, auth_timeout=60)
             logger.debug("Connection to %s on port %s is successful!" % (self.server, self.port))
             return self.SUCCESS
         except paramiko.AuthenticationException as exc:
@@ -697,13 +720,15 @@ class ParamikoSSH:
         Raises:
         """
         shell.settimeout(self.timeout)
-        rcv_buffer = ''
+        rcv_buffer = b''
         try:
             shell.send(command)
-            while wait_string not in rcv_buffer:
-                rcv_buffer = str(shell.recv(10000))
+            while wait_string not in rcv_buffer.decode('utf-8', errors="ignore"):
+                rcv_buffer += shell.recv(10000)
+            rcv_buffer = rcv_buffer.decode('utf-8', errors="ignore")
             logger.debug("Interactive SSH Output: " + str(rcv_buffer))
             return rcv_buffer
         except Exception as e:
+            logger.debug("Interactive SSH Output: " + str(rcv_buffer))
             logger.error("Error occurred: {}".format(repr(e)))
             return None
