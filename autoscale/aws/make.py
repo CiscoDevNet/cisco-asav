@@ -158,7 +158,9 @@ def copy():
 
     list_template_files = [
         'deploy_autoscale.yaml',
-        'infrastructure.yaml'
+        'infrastructure.yaml',
+        'deploy_autoscale_with_gwlb.yaml',
+        'infrastructure_gwlb.yaml'
     ]
     for file in list_template_files:
         cmd = "cp " + full_dir_path + 'templates/' + file + " " + target_path

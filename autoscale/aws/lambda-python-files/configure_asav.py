@@ -397,9 +397,7 @@ def execute_vm_ready_first(asa):
     """
     poll_asav = asa.poll_asav_ssh(const.ASAV_POLL_TIME_IN_MIN_VM_READY)
     if poll_asav == "SUCCESS":
-        request_response = asa.configure_hostname()
-        if request_response != 'SUCCESS':
-            asa.configure_hostname()
+        asa.configure_hostname_with_timeout(const.ASAV_POLL_TIME_IN_MIN_VM_READY)
         asa.create_instance_tags('ASAvConnectionStatus', 'AVAILABLE')
 
         # Let's get SN of the ASAv:  show version | include .*[Ss]erial.[Nn]umber:.*
