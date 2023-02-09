@@ -3,12 +3,14 @@
 ## Azure Deployment
 
 In addition to the Marketplace-based deployment, Cisco provides a compressed virtual hard disk (VHD) (that you can upload to Azure) and then use these ARM templates to deploy:
-* [ASAv](ASAv9.17/asav/README.md)
-* [ASAv HA](ASAv9.17/asav-ha/README.md)
+* [ASAv](ASAv9.19/asav/README.md)
+* [ASAv HA](ASAv9.19/asav-ha/README.md)
+* [ASAv IPv6 using custom image](ASAv9.19/asav-ipv6-custom-image-template)
+* [ASAv IPv6 using marketplace image](ASAv9.19/asav-ipv6-mp-image-template)
 <br>
 Using an Image and two JSON files (a Template file and a Parameter File), you can deploy and provision all the resources for the ASAv and ASAv HA in a single, coordinated operation.<br>
 
-To deploy using a VHD image, you must upload the VHD image to your Azure storage account. Then, you can create a image using the uploaded disk image.<br>
+To deploy using a VHD image(custom image), you must upload the VHD image to your Azure storage account. Then, you can create a image using the uploaded disk image.<br>
 
 ## Azure Resource Manager Templates
 Azure Resource Manager templates are JSON files that contain resource descriptions and parameter definitions.<br>
@@ -31,11 +33,11 @@ You can customize this file for your Azure deployment environment.
 ```
 
 ## Resources
-* Azure ASAv Deployment Template: [ASAv](ASAv9.18/asav/README.md)  |   [ASAV HA](ASAv9.18/asav-ha/README.md)
+* Azure ASAv Deployment Template: [ASAv](ASAv9.19/asav/README.md)  |   [ASAV HA](ASAv9.19/asav-ha/README.md) | [ASAv IPv6 using custom image](ASAv9.19/asav-ipv6-custom-image-template/README.md)   | [ASAv IPv6 using marketplace image](ASAv9.19/asav-ipv6-mp-image-template/README.md)
 
 ## References
-* [Software Downloads Home](https://software.cisco.com/download/home/286119613/type/280775065/release/9.18.1)
-* [ASAv deployment using VHD and ARM](https://www.cisco.com/c/en/us/td/docs/security/asa/asa918/asav/getting-started/asav-918-gsg/asav_azure.html#id_87923)
+* [Software Downloads Home](https://software.cisco.com/download/home/286119613/type/280775065/release/9.19.1)
+* [ASAv deployment using VHD and ARM](https://www.cisco.com/c/en/us/td/docs/security/asa/asa919/asav/getting-started/asa-virtual-919-gsg/asav_azure.html#id_87923)
 * [Azure ASAv quick start guide](https://www.cisco.com/c/en/us/td/docs/security/asa/asa918/asav/getting-started/asav-918-gsg/asav_azure.html)
 
 ## Licensing Info

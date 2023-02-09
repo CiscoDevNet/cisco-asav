@@ -10,6 +10,12 @@ Some of the key features of the ASAv Auto Scale include:
 * Completely automated ASAv instance configuration.
 * Support for Enabling / Disabling Auto Scaling feature.
 
+## ASAv Cluster
+
+Clustering lets you group multiple ASAv units together as a single logical device.
+A cluster provides all the convenience of a single device (management, integration into a network) while achieving the increased throughput and redundancy of multiple devices.
+ASAv cluster is supported on AWS from 9.19 release.
+
 ## AWS GuardDuty Integration with Cisco ASAv
 
 This solution make use of the threat analysis data/results from Amazon GuardDuty (malicious IPs generating threats, attacks etc.) and feeds the information(malicious IP) to the Cisco Adaptive Security Appliance (ASAv) to protect the underlying network and applications against future threats originating from these sources(IP).
@@ -34,13 +40,17 @@ This repository conatains heat template files to deploy the Cisco Adaptive Secur
 ## Resources
 
 ### ASAv Autoscale
-* For Azure on ASAv 9.15 and above: [Code](autoscale/azure/)     |     [README](autoscale/azure/README.md)     |     [Deployment/Configuration Guide](autoscale/azure/asav_azure_autoscale_v915.pdf)
+* For Azure on ASAv 9.15 and above: [Code](autoscale/azure/)     |     [README](autoscale/azure/README.md)     |     [Deployment/Configuration Guide](autoscale/azure/asav_azure_autoscale_v919.pdf
 
 * For AWS on ASAv 9.15 and above: [Code](autoscale/aws/)     |     [README](autoscale/aws/README.md)     |     [Deployment/Configuration Guide](autoscale/aws/asav_aws_autoscale.pdf)
 
 * For GCP on ASAv 9.17 and above: [Code](autoscale/gcp/)     |     [README](autoscale/gcp/README.md)     |     [Deployment/Configuration Guide](autoscale/gcp/asav_gcp_autoscale.pdf)
 
 * For OCI on ASAv 9.17 and above: [Code](autoscale/oci/)     |     [README](autoscale/oci/README.md)     |     [Deployment/Configuration Guide](autoscale/oci/ASAv_Auto_Scale_Solution_on_OCI.pdf)
+
+### ASAv Cluster
+
+* For AWS ASAv Cluster on ASAv 9.19 and above: [Code](cluster/aws/)     |     [README](cluster/aws/README.md)     |     [Deployment/Configuration Guide](cluster/aws/cluster-asav-public.pdf)
 
 ### Cloud Service Integration    
 
@@ -49,6 +59,7 @@ This repository conatains heat template files to deploy the Cisco Adaptive Secur
 
 ### Deployment Template
 * Azure ASAv Deployment Template:
+    * For ASAv 9.19: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.19/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.19/asav-ha/README.md)
     * For ASAv 9.18: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.18/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.18/asav-ha/README.md)
     * For ASAv 9.17: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.17/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.17/asav-ha/README.md)
     * For ASAv 9.16: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.16/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.16/asav-ha/README.md)

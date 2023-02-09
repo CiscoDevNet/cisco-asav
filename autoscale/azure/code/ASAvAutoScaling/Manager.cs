@@ -47,7 +47,7 @@ namespace ASAAutoScaleManager
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
             ILogger log)
         {
-            log.LogWarning("AutoScaleManager:::: Task to check Scaling requirement.. Started (ASAv Auto Scale Manager Version : V1.3)");
+            log.LogWarning("AutoScaleManager:::: Task to check Scaling requirement.. Started (ASAv Auto Scale Manager Version : V2.1)");
             var resoureGroupName = System.Environment.GetEnvironmentVariable("RESOURCE_GROUP_NAME", EnvironmentVariableTarget.Process);
             var vmScalesetName = System.Environment.GetEnvironmentVariable("VMSS_NAME", EnvironmentVariableTarget.Process);
             var minASACountStr = System.Environment.GetEnvironmentVariable("MIN_ASA_COUNT", EnvironmentVariableTarget.Process);

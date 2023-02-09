@@ -79,6 +79,7 @@ namespace ASAAutoScaleManager
             string cmd = "D:\\home\\site\\wwwroot\\asassh.exe -ssh " + asaUserName + "@" + asaPublicIp + " -pw " + asaPassword;
             //log.LogInformation("cmd: {0}", cmd);
             log.LogInformation("ConfigureASAv:::: ASA configuration started via SSH");
+            inputWriter.NewLine = "\n";
             inputWriter.WriteLine(cmd);
             Thread.Sleep(1000);
             inputWriter.WriteLine("y");
@@ -116,18 +117,12 @@ namespace ASAAutoScaleManager
                 inputWriter.WriteLine("ssh stricthostkeycheck");
                 Thread.Sleep(2000);
             }
-/*
-            inputWriter.WriteLine("");
-            Thread.Sleep(1000);
-            inputWriter.WriteLine("");
-            Thread.Sleep(1000);
-            inputWriter.WriteLine("");
-            Thread.Sleep(2000);
-*/
+
             //write configuration to memory
             inputWriter.WriteLine("write memory");
             Thread.Sleep(2000);
-
+            inputWriter.WriteLine("exit");
+            inputWriter.WriteLine("exit");
             //Check for configuration errors
             var asaSshClient = new asaSshClientClass();
             var configStatus = asaSshClient.checkAsaConfiguration(asaPublicIp, log);
@@ -236,6 +231,7 @@ namespace ASAAutoScaleManager
             string cmd = "D:\\home\\site\\wwwroot\\asassh.exe -ssh " + asaUserName + "@" + asaPublicIp + " -pw " + asaPassword;
             log.LogInformation("stopNewConnections:::: cmd: {0}", cmd);
             log.LogInformation("stopNewConnections:::: ASA configuration started to disable health probe");
+            inputWriter.NewLine = "\n";
             inputWriter.WriteLine(cmd);
             Thread.Sleep(1000);
             inputWriter.WriteLine("y");
@@ -342,6 +338,7 @@ namespace ASAAutoScaleManager
             //send command to cmd prompt and wait for command to execute with thread sleep
             string cmd = "D:\\home\\site\\wwwroot\\asassh.exe -ssh " + asaUserName + "@" + asaPublicIp + " -pw " + asaPassword;
             inputWriter.WriteLine(cmd);
+            inputWriter.NewLine = "\n";
             Thread.Sleep(1000);
             inputWriter.WriteLine("y");
 
@@ -356,7 +353,8 @@ namespace ASAAutoScaleManager
             cmd = "show license summary | grep Status";
             inputWriter.WriteLine(cmd);
             Thread.Sleep(2000);
-
+            inputWriter.WriteLine("exit");
+            inputWriter.WriteLine("exit");
             inputWriter.Close();
             string cmdOutput = "";
             string tmp = "";

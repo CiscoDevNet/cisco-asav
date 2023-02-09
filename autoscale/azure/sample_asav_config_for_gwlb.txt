@@ -1,0 +1,22 @@
+interface G0/0
+    nameif outside
+    ip address dhcp setroute
+    no shut
+!
+ssh 168.63.129.0 255.255.255.0 outside
+route outside 0.0.0.0 0.0.0.0 192.168.2.1 2
+nve 1
+    encapsulation vxlan
+    source-interface outside
+    peer ip 192.168.2.100
+!
+interface vni1
+    proxy paired
+    nameif  GWLB-backend-pool
+    internal-port 2000
+    internal-segment-id 800
+    external-port 2001
+    external-segment-id 801
+    vtep-nve 1
+!
+same-security-traffic permit intra-interface
