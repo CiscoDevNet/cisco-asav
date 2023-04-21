@@ -19,9 +19,6 @@ using System.IO;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using RestSharp;
-using RestSharp.Authenticators;
-using RestClient = RestSharp.RestClient;
 using System.Threading;
 
 //*****************************************Login to ASA via SSH****************************************
@@ -102,6 +99,7 @@ namespace asaSshClient
             log.LogInformation("checkAsaConfiguration:::: Verifying ASA Configuration");
             inputWriter.WriteLine(cmd);
             Thread.Sleep(1000);
+            inputWriter.NewLine = "\n";
             inputWriter.WriteLine("y");
 
             //enter enable mode
@@ -114,6 +112,8 @@ namespace asaSshClient
             //check if enable password is accepted and operation mode has changed
             inputWriter.WriteLine("show interface ip brief | grep Management");
             Thread.Sleep(2000);
+            inputWriter.WriteLine("exit");
+            inputWriter.WriteLine("exit");
 
             //Check for configuration errors
             inputWriter.Close();

@@ -11,6 +11,7 @@ Some of the key features of the ASAv Auto Scale for Azure implementation include
 *	Supports ASAv deployment in Multi-availability zones
 *	Support for Enabling / Disabling Auto Scaling feature
 *	Azure Resource Manager (ARM) template based deployment 
+*	Support to deploy ASAv with PAYG licensing mode 
 
 ## Deployment
 
@@ -21,8 +22,8 @@ ARM template is used to deploy resources required by ASAv Auto Scale feature in 
    (Note: User needs to build Function App from the source code using Visual Studio)
 *  Logic App acts as an Orchestrator to sequence the operation
 
-Please refer [Deployment Guide](./asav_azure_autoscale_v915.pdf) for detailed instructions on how to Build, Deploy, Configure and Manage Auto Scale solution. 
-Also please refer [Deployment Guide](./asav_azure_autoscale_v915.pdf) to understand the known limitations of this feature.
+Please refer [Deployment Guide](./asav_azure_autoscale_v919.pdf) for detailed instructions on how to Build, Deploy, Configure and Manage Auto Scale solution. 
+Also please refer [Deployment Guide](./asav_azure_autoscale_v919.pdf) to understand the known limitations of this feature.
 
 ## License
 
