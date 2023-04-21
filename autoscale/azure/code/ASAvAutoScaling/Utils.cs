@@ -19,9 +19,6 @@ using System.IO;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using RestSharp;
-using RestSharp.Authenticators;
-using RestClient = RestSharp.RestClient;
 using System.Threading;
 
 //*****************************************Login to ASA via SSH****************************************
