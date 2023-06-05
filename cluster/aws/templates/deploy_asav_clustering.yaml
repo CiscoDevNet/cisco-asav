@@ -101,14 +101,6 @@ Parameters:
      - "Yes"
      - "No"
     Default: "Yes"
-  TargetFailover:
-    Description: >-
-      Enable Target Failover Support ("rebalance" or "no_rebalance").
-    Type: String
-    AllowedValues:
-     - "rebalance"
-     - "no_rebalance"
-    Default: "rebalance"
   S3BktName:
     Description: The S3 Bucket name for lambda function
     Type: String
@@ -226,6 +218,7 @@ Parameters:
     Type: String
     AllowedValues:
       - BYOL
+      - PAYG
     Default: BYOL
   SmartLicToken:
     Description: >-
@@ -233,7 +226,7 @@ Parameters:
     Type: String
   AmiID:
     Description: >-
-      Please choose correct AMI ID as per the region, desired version and license type(BYOL).
+      Please choose correct AMI ID as per the region, desired version and license type(BYOL/PAYG).
       ASAv version 9.19 onwards releases are supported.
     Type: AWS::EC2::Image::Id
     Default: ami-0265b4bbf47bd0171
@@ -313,7 +306,6 @@ Metadata:
           - DeployGWLBE
           - VpcIdLBE
           - GWLBESubnetId
-          - TargetFailover
           - TgHealthPort
       - Label:
           default: Cisco ASAv Instance Configuration
@@ -352,8 +344,6 @@ Metadata:
         default: Enter Valid Availability Zone
       S3BktName:
         default: S3 Bucket Name
-      TargetFailover:
-        default: Target Failover
       TgHealthPort:
         default: Enter Health Check Port for Gateway Load Balancer
       InstanceType:
@@ -489,11 +479,6 @@ Resources:
       HealthCheckProtocol: TCP
       VpcId: !Ref VpcId
       TargetType: ip
-      TargetGroupAttributes:
-      - Key: target_failover.on_deregistration
-        Value: !Ref TargetFailover
-      - Key: target_failover.on_unhealthy
-        Value: !Ref TargetFailover
   listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -929,10 +914,6 @@ Resources:
             ssh timeout 60
             !
             enable password AsAv_ClU3TeR44 level 15
-            !
-            telnet 0 0 management
-            telnet timeout 30
-            aaa authentication telnet console LOCAL
             !
             dns domain-lookup management
             DNS server-group DefaultDNS
