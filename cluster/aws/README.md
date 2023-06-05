@@ -14,15 +14,14 @@ The cluster_layer.zip can be created in a Linux environment, such as Ubuntu 18.0
 mkdir -p layer
 virtualenv -p /usr/bin/python3.9 ./layer/
 source ./layer/bin/activate
-pip3 install pycryptodome==3.12.0
+pip3 install pycryptodome==3.17.0
 pip3 install paramiko==2.11.0
 pip3 install requests==2.23.0
 pip3 install scp==0.13.2
 pip3 install jsonschema==3.2.0
-pip3 install cffi==1.14.0
+pip3 install cffi==1.15.1
 pip3 install zipp==3.1.0
 pip3 install importlib-metadata==1.6.0
-pip3 install telnetlib3==1.0.4
 echo "Copy from ./layer directory to ./python\n"
 mkdir -p ./python/
 cp -r ./layer/lib/python3.9/site-packages/* ./python/

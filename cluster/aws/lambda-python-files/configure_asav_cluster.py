@@ -563,7 +563,7 @@ def verify_cluster_status(aws_grp, asa):
             control = status.count('CONTROL_NODE')
             members = status.count('DATA_NODE')
             logger.info(status)
-            if (control != 1 and members != (mins - 1)) or count == 3:
+            if (control != 1 or members != (mins - 1)):
                 logger.info('Cluster is not properly formed..!!')
                 asa.create_instance_tags('ClusterStatus', 'NOT FORMED')
                 return 'FAIL'
