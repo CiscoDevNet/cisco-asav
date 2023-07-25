@@ -56,7 +56,7 @@ Scaling Policies can be created based only on CPU using AWS Dynamic Scaling only
 
 ## Steps-to-deploy
 
-Please refer [Configuration Guide](./asav_aws_autoscale_v915.pdf) for detailed explanation
+Please refer [Configuration Guide](./asav_aws_autoscale.pdf) for detailed explanation
 
 ## Licensing Info
 
