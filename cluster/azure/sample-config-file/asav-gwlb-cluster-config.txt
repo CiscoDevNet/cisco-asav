@@ -1,0 +1,80 @@
+!
+cluster interface-mode individual force
+
+policy-map global_policy
+class inspection_default
+no inspect h323 h225
+no inspect h323 ras
+no inspect rtsp
+no inspect skinny
+
+interface GigabitEthernet0/0 
+nameif vxlan_tunnel 
+security-level 0 
+ip address dhcp 
+no shutdown 
+
+interface GigabitEthernet0/1 
+nve-only cluster 
+nameif ccl_link 
+security-level 0 
+ip address dhcp 
+no shutdown 
+
+interface vni1 
+description ClusterInterface 
+segment-id 1 
+vtep-nve 1 
+
+interface vni2 
+proxy paired 
+nameif GWLB-backend-pool 
+internal-segment-id 800
+external-segment-id 801
+internal-port 2000
+external-port 2001
+security-level 0 
+vtep-nve 2 
+
+ssh 168.63.129.0 255.255.255.0 vxlan_tunnel
+route vxlan_tunnel 0.0.0.0 0.0.0.0 <Data Subnet Gateway IP> 2
+
+object network ccl#link 
+range <CCLSubnetStartAddress> <CClSubnetEndAddress>
+object-group network cluster#group 
+network-object object ccl#link
+
+nve 1 
+encapsulation vxlan 
+source-interface ccl_link 
+peer-group cluster#group 
+
+nve 2 
+encapsulation vxlan
+source-interface vxlan_tunnel 
+peer ip <GatewayLoadbalancerIp>
+ 
+same-security-traffic permit inter-interface 
+same-security-traffic permit intra-interface
+
+dns domain-lookup management 
+dns server-group DefaultDNS 
+name-server 8.8.8.8 management 
+
+mtu vxlan_tunnel 1374
+mtu ccl_link 1454
+
+sysopt connection tcpmss 1200
+
+access-list allow-all extended permit ip any any
+access-group allow-all global
+
+call-home
+profile license
+destination transport-method http
+destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
+debug menu license 25 production
+license smart
+feature tier standard
+throughput level <Throughput value>
+license smart register idtoken <License Token>
