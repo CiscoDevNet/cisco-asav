@@ -72,6 +72,7 @@ class ParamikoSSH:
         self.AUTH_EXCEPTION = 'Authentication Exception Occurred'
         self.BAD_HOST_KEY_EXCEPTION = 'Bad Key Exception occurred'
         self.SSH_EXCEPTION = 'SSH Exception Occurred'
+        self.retry = 5
 
     def close(self):
         self.ssh.close()
@@ -100,7 +101,7 @@ class ParamikoSSH:
         if self.verify_server_ip() == 'FAILURE':
             return self.FAIL
         try:
-            self.ssh.connect(self.server, self.port, username, password, timeout=10, allow_agent= False, look_for_keys= False)
+            self.ssh.connect(self.server, self.port, username, password, timeout=60, banner_timeout=60, auth_timeout=60, allow_agent= False, look_for_keys= False)
             logger.debug("Connection to %s on port %s is successful!" % (self.server, self.port))
             return self.SUCCESS
         except paramiko.AuthenticationException as exc:
@@ -115,7 +116,6 @@ class ParamikoSSH:
         except BaseException as exc:
             logger.debug("Exception occurred: {}".format(repr(exc)))
             return self.FAIL
-
 
     def invoke_interactive_shell(self):
         """
@@ -156,7 +156,7 @@ class ParamikoSSH:
                         pass
                     else:
                         self.ssh.close()
-                        logger.error("Unable to execute command!")
+                        logger.error(f"Unable to execute command: {command}")
                         return self.FAIL
         self.ssh.close()
         return self.FAIL
@@ -169,16 +169,16 @@ class ParamikoSSH:
         Raises:
         """
         shell.settimeout(self.timeout)
-        rcv_buffer = ''
+        total_msg = ""
+        rcv_buffer = b""
         try:
             shell.send(command)
-            while wait_string not in rcv_buffer:
-                rcv_buffer = str(shell.recv(10000))
-                # logger.info("send_cmd_and_wait_for_execution Output : {}".format(str(rcv_buffer)))
-                if "The maximum number of management sessions for protocol ssh already exist" in rcv_buffer:
-                    return None
-            logger.debug("Interactive SSH Output: " + str(rcv_buffer))
-            return rcv_buffer
+            while wait_string not in rcv_buffer.decode("utf-8"):
+                if shell.recv_ready():
+                    rcv_buffer = shell.recv(10000)
+                    total_msg = total_msg + ' ' + rcv_buffer.decode("utf-8")
+            logger.debug(f"Interactive SSH Output: {total_msg}")
+            return total_msg
         except Exception as e:
-            logger.error("Error occurred: {}".format(repr(e)))
+            logger.error(f" (send_cmd_and_wait_for_execution): Command:{repr(command)}, Wait string:{wait_string}, Buffer: {total_msg} ERROR:{repr(e)}")
             return None

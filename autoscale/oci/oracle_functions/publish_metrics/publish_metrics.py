@@ -117,6 +117,7 @@ class publishMetrics:
 
 
     def fetch_cpu_usage_from_asav(self):
+        no_of_retry = 3
         cpu_usage_list = []
         command_set_to_show_cpu_usage = {
             "cmd": [
@@ -149,15 +150,17 @@ class publishMetrics:
                 for ip in asav_ip_list:
                     logger.info("PUBLISH METRICS : Fetching CPU Utilization for the ASAv : {}".format(ip))
                     cnt_asa = ParamikoSSH(ip, const.ASAV_SSH_PORT, const.ASAV_USERNAME, self.asav_password)
-                    cmd_output = cnt_asa.handle_interactive_session(command_set_to_show_cpu_usage, const.ASAV_USERNAME, self.asav_password)
-                    if cmd_output not in [FAIL, AUTH_EXCEPTION, BAD_HOST_KEY_EXCEPTION, SSH_EXCEPTION]:
-                        # pattern = "CPU utilization for 5 seconds\ =\ (.*?)\%;"
-                        cpu_usage = int(re.search("CPU utilization for 5 seconds\ =\ (.*?)\%;", cmd_output).group(1))
-                        logger.info("PUBLISH METRICS : CPU Utilization value : {}".format(cpu_usage))
-                        cpu_usage_list.append(cpu_usage)
-                    else:
-                        logger.error("Unable to fetch CPU info for the ASAv {}. Error : {}".format(ip, cmd_output))
-
+                    for i in range(0, no_of_retry):
+                        cmd_output = cnt_asa.handle_interactive_session(command_set_to_show_cpu_usage, const.ASAV_USERNAME, self.asav_password)
+                        if cmd_output not in [FAIL, AUTH_EXCEPTION, BAD_HOST_KEY_EXCEPTION, SSH_EXCEPTION]:
+                            # pattern = "CPU utilization for 5 seconds\ =\ (.*?)\%;"
+                            cpu_usage = int(re.search("CPU utilization for 5 seconds\ =\ (.*?)\%;", cmd_output).group(1))
+                            logger.info("PUBLISH METRICS : CPU Utilization value : {}".format(cpu_usage))
+                            cpu_usage_list.append(cpu_usage)
+                            break
+                        else:
+                            logger.error("PUBLISH METRICS :Unable to fetch CPU info for the ASAv {}, Error : {}, Retry Count : {}".format(ip, cmd_output, i))
+                        time.sleep(10)
                 # Calculating CPU value
                 cpu_value = self.calculate_cpu_usage_value(cpu_usage_list)
 

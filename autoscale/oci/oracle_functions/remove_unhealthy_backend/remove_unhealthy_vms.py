@@ -53,6 +53,7 @@ class ParamikoSSH:
         self.AUTH_EXCEPTION = 'Authentication Exception Occurred'
         self.BAD_HOST_KEY_EXCEPTION = 'Bad Key Exception occurred'
         self.SSH_EXCEPTION = 'SSH Exception Occurred'
+        self.retry = 7
 
     def close(self):
         self.ssh.close()
@@ -80,22 +81,30 @@ class ParamikoSSH:
         """
         if self.verify_server_ip() == 'FAILURE':
             return self.FAIL
-        try:
-            self.ssh.connect(self.server, self.port, username, password, timeout=10)
-            logger.debug("REMOVE UNHEALTHY BACKEND FUNCTION: Connection to %s on port %s is successful!" % (self.server, self.port))
-            return self.SUCCESS
-        except paramiko.AuthenticationException as exc:
-            logger.warn("REMOVE UNHEALTHY BACKEND FUNCTION: Exception occurred: {}".format(repr(exc)))
-            return self.AUTH_EXCEPTION
-        except paramiko.BadHostKeyException as exc:
-            logger.debug("REMOVE UNHEALTHY BACKEND FUNCTION: Exception occurred: {}".format(repr(exc)))
-            return self.BAD_HOST_KEY_EXCEPTION
-        except paramiko.SSHException as exc:
-            logger.debug("REMOVE UNHEALTHY BACKEND FUNCTION: Exception occurred: {}".format(repr(exc)))
-            return self.SSH_EXCEPTION
-        except BaseException as exc:
-            logger.debug("REMOVE UNHEALTHY BACKEND FUNCTION: Exception occurred: {}".format(repr(exc)))
-            return self.FAIL
+        flag = self.FAIL
+        for i in range(1, self.retry):
+            try:
+                self.ssh.connect(self.server, self.port, username, password, timeout=60, banner_timeout=90//i, auth_timeout=60)
+                logger.debug(f"CONFIGURE ASAv {self.identifier}: (connect) Connection to {self.server} on port {self.port} is successful!")
+                return self.SUCCESS
+            except paramiko.AuthenticationException as exc:
+                logger.warn(f"CONFIGURE ASAv {self.identifier}: (connect) Exception occurred: {repr(exc)}")
+                flag = self.AUTH_EXCEPTION
+                time.sleep(10)
+            except paramiko.BadHostKeyException as exc:
+                logger.debug(f"CONFIGURE ASAv {self.identifier}:(connect) Exception occurred: {repr(exc)}")
+                flag = self.BAD_HOST_KEY_EXCEPTION
+                time.sleep(10)
+            except paramiko.SSHException as exc:
+                logger.debug(f"CONFIGURE ASAv {self.identifier}: (connect) Exception occurred: {repr(exc)}")
+                flag = self.SSH_EXCEPTION
+                time.sleep(10)
+            except BaseException as exc:
+                logger.debug(f"CONFIGURE ASAv {self.identifier}: (connect) Exception occurred: {repr(exc)}")
+                flag = self.FAIL
+                time.sleep(10)
+        logger.warning(f"CONFIGURE ASAv {self.identifier}: (connect) Connect to server response {flag}")
+        return flag
 
     def execute_cmd(self, command):
         """
@@ -188,15 +197,19 @@ class ParamikoSSH:
         Raises:
         """
         shell.settimeout(self.timeout)
-        rcv_buffer = ''
+        total_msg = ""
+        rcv_buffer = b""
+        print(f"Running Command : {command}, Wait String {wait_string}")
         try:
             shell.send(command)
-            while wait_string not in rcv_buffer:
-                rcv_buffer = shell.recv(100000).decode('utf-8')
-            logger.debug("REMOVE UNHEALTHY BACKEND FUNCTION: Interactive SSH Output: " + str(rcv_buffer))
-            return rcv_buffer
+            while wait_string not in rcv_buffer.decode("utf-8"):
+                if shell.recv_ready():
+                    rcv_buffer = shell.recv(10000)
+                    total_msg = total_msg + ' ' + rcv_buffer.decode("utf-8")
+            logger.debug(f"REMOVE UNHEALTHY BACKEND FUNCTION: Command Output: {total_msg}")
+            return total_msg
         except Exception as e:
-            logger.error("REMOVE UNHEALTHY BACKEND FUNCTION: Error occurred: {}".format(repr(e)))
+            logger.error(f"REMOVE UNHEALTHY BACKEND FUNCTION: (send_cmd_and_wait_for_execution) Command:{repr(command)}, Wait string:{wait_string}, Buffer: {total_msg} ERROR:{repr(e)}")
             return None
 
 class ASAvInstance:
@@ -251,12 +264,12 @@ class ASAvInstance:
         logger.info("Checking if instance SSH access is available!")
         if minutes <= 1:
             minutes = 2
-        for i in range(1, 2 * minutes):
+        for i in range(1, 6 * minutes):
             if i != ((2 * minutes) - 1):
                 status = self.check_asav_ssh_status()
                 if status != "SUCCESS":
-                    logger.debug(str(i) + " Sleeping for 30 seconds")
-                    time.sleep(1 * 30)
+                    logger.debug(str(i) + " Retrying in 10 sec")
+                    time.sleep(1 * 10)
                 else:
                     return "SUCCESS"
         logger.info("REMOVE UNHEALTHY BACKEND FUNCTION: Failed to connect to device retrying... ")
@@ -649,7 +662,6 @@ def handler(ctx, data: io.BytesIO = None):
                     ilb_critical_ip.remove(interface_ip_response["inside_ip"])
 
         logger.info("REMOVE UNHEALTHY BACKEND FUNCTION: Instance going to be terminated : {0}".format(unhealthy_instance_to_remove))
-
     except Exception as e:
         logger.error("REMOVE UNHEALTHY BACKEND FUNCTION: ERROR IN RETRIEVING UNHEALTHY BACKEND INSTANCE ID "+repr(e))
     #=======================================================================================================#
@@ -675,7 +687,7 @@ def handler(ctx, data: io.BytesIO = None):
         logger.info("REMOVE UNHEALTHY BACKEND FUNCTION: NO UNHEALTHY BACKEND FOUND")
         return "NO UNHEALTHY BACKEND FOUND"
 
-    logger.info("REMOVE UNHEALTHY BACKEND FUNCTION: Unhealthy Instances going to be terminated are ",unhealthy_instance_to_remove)
+    logger.info(f"REMOVE UNHEALTHY BACKEND FUNCTION: Unhealthy Instances going to be terminated are {unhealthy_instance_to_remove}")
 
     for instanceId in unhealthy_instance_to_remove:
         

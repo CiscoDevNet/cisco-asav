@@ -55,6 +55,7 @@ class ParamikoSSH:
         self.AUTH_EXCEPTION = 'Authentication Exception Occurred'
         self.BAD_HOST_KEY_EXCEPTION = 'Bad Key Exception occurred'
         self.SSH_EXCEPTION = 'SSH Exception Occurred'
+        self.retry = 7
 
     def close(self):
         self.ssh.close()
@@ -82,22 +83,30 @@ class ParamikoSSH:
         """
         if self.verify_server_ip() == 'FAILURE':
             return self.FAIL
-        try:
-            self.ssh.connect(self.server, self.port, username, password, timeout=10)
-            logger.debug("SCALE-IN: Connection to %s on port %s is successful!" % (self.server, self.port))
-            return self.SUCCESS
-        except paramiko.AuthenticationException as exc:
-            logger.warn("SCALE-IN: Exception occurred: {}".format(repr(exc)))
-            return self.AUTH_EXCEPTION
-        except paramiko.BadHostKeyException as exc:
-            logger.debug("SCALE-IN: Exception occurred: {}".format(repr(exc)))
-            return self.BAD_HOST_KEY_EXCEPTION
-        except paramiko.SSHException as exc:
-            logger.debug("SCALE-IN: Exception occurred: {}".format(repr(exc)))
-            return self.SSH_EXCEPTION
-        except BaseException as exc:
-            logger.debug("SCALE-IN: Exception occurred: {}".format(repr(exc)))
-            return self.FAIL
+        flag = self.FAIL
+        for i in range(1, self.retry):
+            try:
+                self.ssh.connect(self.server, self.port, username, password, timeout=60, banner_timeout=90//i, auth_timeout=60)
+                logger.debug(f"CONFIGURE ASAv {self.identifier}: (connect) Connection to {self.server} on port {self.port} is successful!")
+                return self.SUCCESS
+            except paramiko.AuthenticationException as exc:
+                logger.warn(f"CONFIGURE ASAv {self.identifier}: (connect) Exception occurred: {repr(exc)}")
+                flag = self.AUTH_EXCEPTION
+                time.sleep(10)
+            except paramiko.BadHostKeyException as exc:
+                logger.debug(f"CONFIGURE ASAv {self.identifier}:(connect) Exception occurred: {repr(exc)}")
+                flag = self.BAD_HOST_KEY_EXCEPTION
+                time.sleep(10)
+            except paramiko.SSHException as exc:
+                logger.debug(f"CONFIGURE ASAv {self.identifier}: (connect) Exception occurred: {repr(exc)}")
+                flag = self.SSH_EXCEPTION
+                time.sleep(10)
+            except BaseException as exc:
+                logger.debug(f"CONFIGURE ASAv {self.identifier}: (connect) Exception occurred: {repr(exc)}")
+                flag = self.FAIL
+                time.sleep(10)
+        logger.warning(f"CONFIGURE ASAv {self.identifier}: (connect) Connect to server response {flag}")
+        return flag
 
     def execute_cmd(self, command):
         """
@@ -190,15 +199,19 @@ class ParamikoSSH:
         Raises:
         """
         shell.settimeout(self.timeout)
-        rcv_buffer = ''
+        total_msg = ""
+        rcv_buffer = b""
+        print(f"Running Command : {command}, Wait String {wait_string}")
         try:
             shell.send(command)
-            while wait_string not in rcv_buffer:
-                rcv_buffer = shell.recv(100000).decode('utf-8')
-            logger.debug("SCALE-IN: Interactive SSH Output: " + str(rcv_buffer))
-            return rcv_buffer
+            while wait_string not in rcv_buffer.decode("utf-8"):
+                if shell.recv_ready():
+                    rcv_buffer = shell.recv(10000)
+                    total_msg = total_msg + ' ' + rcv_buffer.decode("utf-8")
+            logger.debug(f"SCALE-IN: Command Output: {total_msg}")
+            return total_msg
         except Exception as e:
-            logger.error("SCALE-IN: Error occurred: {}".format(repr(e)))
+            logger.error(f"SCALE-IN: (send_cmd_and_wait_for_execution) Command:{repr(command)}, Wait string:{wait_string}, Buffer: {total_msg} ERROR:{repr(e)}")
             return None
 
 class ASAvInstance:

@@ -108,6 +108,14 @@ data "oci_functions_functions" "test_functions_remove_unhealthy_vms" {
     display_name = "remove_unhealthy_backend"
 }
 
+data "oci_functions_functions" "test_functions_configure_asav" {
+    #Required
+    application_id = data.oci_functions_applications.test_applications.applications[0].id
+
+    #Optional
+    display_name = "configure_asav"
+}
+
 resource "oci_logging_log_group" "test_log_group" {
     #Required
     compartment_id = var.compartment_id
@@ -229,6 +237,26 @@ resource "oci_ons_subscription" "test_subscription_remove_unhealthy_vms" {
     endpoint = data.oci_functions_functions.test_functions_remove_unhealthy_vms.functions[0].id
     protocol = "ORACLE_FUNCTIONS"
     topic_id = oci_ons_notification_topic.test_notification_topic_remove_unhealthy_vms.id
+}
+
+locals{
+    configure_asav_topic_name = "${var.autoscale_group_prefix}_configure_asav"
+    configure_asav_topicId = data.oci_ons_notification_topics.test_notification_configure_asav.notification_topics[0].topic_id
+}
+
+data "oci_ons_notification_topics" "test_notification_configure_asav" {
+    #Required
+    compartment_id = var.compartment_id
+    #Optional
+    name = local.configure_asav_topic_name
+}
+
+resource "oci_ons_subscription" "test_subscription_configure_asav" {
+    #Required
+    compartment_id = var.compartment_id
+    endpoint = data.oci_functions_functions.test_functions_configure_asav.functions[0].id
+    protocol = "ORACLE_FUNCTIONS"
+    topic_id = local.configure_asav_topicId
 }
 
 resource "oci_monitoring_alarm" "test_alarm_new_scale_in" {
