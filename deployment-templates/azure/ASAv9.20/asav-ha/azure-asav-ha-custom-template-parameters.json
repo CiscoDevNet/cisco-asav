@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmName-prefix": {
+      "value": "cisco-asav-ha"
+    },
+    "vmImageId": {
+      "value": "/subscriptions/{subscription-id}/resourceGroups/myresourcegroup1/providers/Microsoft.Compute/images/myImage"
+    },
+    "adminUsername": {
+      "value": "cisco"
+    },
+    "adminPassword": {
+      "value": "Password@2021"
+    },
+    "vmStorageAccount-A": {
+      "value": "ciscoasavha1"
+    },
+     "vmStorageAccount-B": {
+      "value": "ciscoasavha2"
+    },
+    "virtualNetworkResourceGroup": {
+      "value": "test-vnet-rg"
+    },
+    "virtualNetworkName": {
+      "value": "test-vnet"
+    },
+    "mgmtSubnetName": {
+      "value": "mgmt"
+    },
+    "mgmtSubnetIp-A": {
+      "value": "10.4.0.10"
+    },
+    "mgmtSubnetIp-B": {
+      "value": "10.4.0.11"
+    },
+    "data1SubnetName": {
+      "value": "data-subnet1"
+    },
+    "data1SubnetIP-A": {
+      "value": "10.4.1.10"
+    },
+    "data1SubnetIP-B": {
+      "value": "10.4.1.11"
+    },
+    "data2SubnetName": {
+      "value": "data-subnet2"
+    },
+    "data2SubnetIP-A": {
+      "value": "10.4.2.10"
+    },
+    "data2SubnetIP-B": {
+      "value": "10.4.2.11"
+    },
+    "data3SubnetName": {
+      "value": "data-subnet3"
+    },
+    "data3SubnetIP-A": {
+      "value": "10.4.3.10"
+    },
+    "data3SubnetIP-B": {
+      "value": "10.4.3.11"
+    },
+    "vmSize": {
+      "value": "Standard_D3_v2"
+    }
+  }
+}
