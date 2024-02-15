@@ -61,6 +61,7 @@ This repository conatains heat template files to deploy the Cisco Adaptive Secur
 
 ### Deployment Template
 * Azure ASAv Deployment Template:
+    * For ASAv 9.20: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.20/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.20/asav-ha/README.md)
     * For ASAv 9.19: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.19/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.19/asav-ha/README.md)
     * For ASAv 9.18: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.18/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.18/asav-ha/README.md)
     * For ASAv 9.17: [README](deployment-templates/azure/README.md) | [ASAv](deployment-templates/azure/ASAv9.17/asav/README.md)  |   [ASAV HA](deployment-templates/azure/ASAv9.17/asav-ha/README.md)
