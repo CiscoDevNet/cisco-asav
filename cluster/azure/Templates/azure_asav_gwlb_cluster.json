@@ -34,7 +34,7 @@
         },
         "dataInterfaceSubnet": {
             "type": "string",
-            "defaultValue": "outside",
+            "defaultValue": "data",
             "metadata": {
                 "description": "Data subnet name"
             }
