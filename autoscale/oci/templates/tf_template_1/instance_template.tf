@@ -28,14 +28,29 @@ variable "region" {
         error_message = "Please provide a valid region."
       }
 }
-variable "lb_size" {
-  description = "A template that determines the total pre-provisioned bandwidth (ingress plus egress) of the external and internal load balancer. The supported values are - 100Mbps, 10Mbps, 10Mbps-Micro, 400Mbps, 8000Mbps"
+variable "load_balancer_shape_details_maximum_bandwidth_in_mbps"{
+  description = "The maximum bandwidth (ingress plus egress) that the load balancer can achieve.The values must be between minimumBandwidthInMbps and 8000 (8Gbps)."
+  type = number
+  default = "400"
   validation {
         condition = (
-          contains(["100Mbps", "10Mbps", "10Mbps-Micro", "400Mbps", "8000Mbps"], var.lb_size)
+          var.load_balancer_shape_details_maximum_bandwidth_in_mbps >= 10 &&
+          var.load_balancer_shape_details_maximum_bandwidth_in_mbps <= 8000
         )
-        error_message = "Please provide a valid size."
-      }
+        error_message = "Please provide a valid value between 10 and 8000."
+  }
+}
+variable "load_balancer_shape_details_minimum_bandwidth_in_mbps"{
+  description = "The minimum bandwidth (ingress plus egress) that the load balancer can achieve.The values must be between 10 and the maximumBandwidthInMbps."
+  type = number
+  default = "100"
+  validation {
+        condition = (
+          var.load_balancer_shape_details_minimum_bandwidth_in_mbps >= 10 &&
+          var.load_balancer_shape_details_minimum_bandwidth_in_mbps <= 8000
+        )
+        error_message = "Please provide a valid value between 10 and 8000."
+  }
 }
 variable "availability_domain" {
   description = "The availability domain to place instances. To get the specific names of your tenancy's availability domains, use the ListAvailabilityDomains (https://docs.oracle.com/en-us/iaas/api/#/en/identity/20160918/AvailabilityDomain/ListAvailabilityDomains) operation, which is available in the IAM API. Example - Tpeb:PHX-AD-1,Tpeb:PHX-AD-2. Please provide comma separated values"
@@ -130,7 +145,7 @@ EOT
 
   min_instance_count = split(",", var.min_and_max_instance_count)[0]
   max_instance_count = split(",", var.min_and_max_instance_count)[1]
-  availability_domains = tolist("${split(",", var.availability_domain)}")
+  availability_domains = tolist(split(",", var.availability_domain))
   instance_pool_id = "${length(local.availability_domains) == 1 ? "${oci_core_instance_pool.test_instance_pool_1[0].id}" : "${length(local.availability_domains) == 2 ? "${oci_core_instance_pool.test_instance_pool_2[0].id}" : "${oci_core_instance_pool.test_instance_pool_3[0].id}"}"}"
 }
 
@@ -322,24 +337,35 @@ resource "oci_load_balancer_load_balancer" "test_load_balancer_elb" {
     #Required
     compartment_id = var.compartment_id
     display_name = "${var.autoscale_group_prefix}_external_load_balancer"
-    shape = var.lb_size
+    shape = "flexible"
     subnet_ids = [var.outside_subnet_ocid]
+    network_security_group_ids = [var.outside_nsg_ocid] 
 
     #Optional
     ip_mode = "IPV4"
     is_private = "false"
-
+    shape_details {
+        #Required
+        maximum_bandwidth_in_mbps = var.load_balancer_shape_details_maximum_bandwidth_in_mbps
+        minimum_bandwidth_in_mbps = var.load_balancer_shape_details_minimum_bandwidth_in_mbps
+    }
 }
 resource "oci_load_balancer_load_balancer" "test_load_balancer_ilb" {
     #Required
     compartment_id = var.compartment_id
     display_name = "${var.autoscale_group_prefix}_internal_load_balancer"
-    shape = var.lb_size
+    shape = "flexible"
     subnet_ids = [var.inside_subnet_ocid]
+    network_security_group_ids = [var.inside_nsg_ocid]
 
     #Optional
     ip_mode = "IPV4"
     is_private = "true"
+    shape_details {
+        #Required
+        maximum_bandwidth_in_mbps = var.load_balancer_shape_details_maximum_bandwidth_in_mbps
+        minimum_bandwidth_in_mbps = var.load_balancer_shape_details_minimum_bandwidth_in_mbps
+    }
 }
 resource "oci_load_balancer_backend_set" "test_backend_set_elb" {
     #Required
@@ -462,6 +488,17 @@ resource "oci_core_instance_pool" "test_instance_pool_3" {
     display_name = "${var.autoscale_group_prefix}_instance_pool"
 }
 
+resource "oci_ons_notification_topic" "test_notification_topic_configure_asav" {
+  #Required
+  compartment_id = var.compartment_id
+  name = "${var.autoscale_group_prefix}_configure_asav"
+}
+
+locals{
+configure_asav_topic_id = oci_ons_notification_topic.test_notification_topic_configure_asav.id
+}
+
+
 resource "oci_functions_application" "test_application" {
     #Required
     compartment_id = var.compartment_id
@@ -470,39 +507,46 @@ resource "oci_functions_application" "test_application" {
 
     #Optional
     config = {
-    "elb_id": "${oci_load_balancer_load_balancer.test_load_balancer_elb.id}",
-    "elb_backend_set_name": "${oci_load_balancer_backend_set.test_backend_set_elb.name}",
-    "elb_listener_port_no": "${var.elb_listener_port}",
-    "compartment_id": "${var.compartment_id}",
-    "ilb_id": "${oci_load_balancer_load_balancer.test_load_balancer_ilb.id}",
-    "ilb_listener_port_no": "${var.ilb_listener_port}",
-    "ilb_backend_set_name": "${oci_load_balancer_backend_set.test_backend_set_ilb.name}",
-    "inside_interface_name": "inside",
-    "outside_interface_name": "outside",
-    "instance_pool_id": local.instance_pool_id,
-    "region": "${var.region}",
-    "metric_namespace_name": "${var.autoscale_group_prefix}_metric_namespace",
-    "resource_group_name": "${var.autoscale_group_prefix}_resource_group",
-    "cpu_metric_name": "${var.autoscale_group_prefix}_cpu_usage",
-    "healthcheck_metric_name": "${var.autoscale_group_prefix}_health_check",
-    "encrypted_password": "${var.password}",
-    "cryptographic_endpoint": "${var.cryptographic_endpoint}",
-    "master_key_id": "${var.master_encryption_key_id}",
-    "min_instance_count": "${local.min_instance_count}",
-    "max_instance_count": "${local.max_instance_count}",
-    "inside_subnet_id": "${var.inside_subnet_ocid }",
-    "inside_nsg_id": "${var.inside_nsg_ocid}",
-    "outside_subnet_id": "${var.outside_subnet_ocid}",
-    "outside_nsg_id": "${var.outside_nsg_ocid}",
-    "configuration_file_url": "${var.asav_config_file_url}"
+        "elb_id": "${oci_load_balancer_load_balancer.test_load_balancer_elb.id}",
+        "elb_backend_set_name": "${oci_load_balancer_backend_set.test_backend_set_elb.name}",
+        "elb_listener_port_no": "${var.elb_listener_port}",
+        "compartment_id": "${var.compartment_id}",
+        "ilb_id": "${oci_load_balancer_load_balancer.test_load_balancer_ilb.id}",
+        "ilb_listener_port_no": "${var.ilb_listener_port}",
+        "ilb_backend_set_name": "${oci_load_balancer_backend_set.test_backend_set_ilb.name}",
+        "inside_interface_name": "inside",
+        "outside_interface_name": "outside",
+        "instance_pool_id": local.instance_pool_id,
+        "region": "${var.region}",
+        "metric_namespace_name": "${var.autoscale_group_prefix}_metric_namespace",
+        "resource_group_name": "${var.autoscale_group_prefix}_resource_group",
+        "cpu_metric_name": "${var.autoscale_group_prefix}_cpu_usage",
+        "healthcheck_metric_name": "${var.autoscale_group_prefix}_health_check",
+        "encrypted_password": "${var.password}",
+        "cryptographic_endpoint": "${var.cryptographic_endpoint}",
+        "master_key_id": "${var.master_encryption_key_id}",
+        "min_instance_count": "${local.min_instance_count}",
+        "max_instance_count": "${local.max_instance_count}",
+        "inside_subnet_id": "${var.inside_subnet_ocid }",
+        "inside_nsg_id": "${var.inside_nsg_ocid}",
+        "outside_subnet_id": "${var.outside_subnet_ocid}",
+        "outside_nsg_id": "${var.outside_nsg_ocid}",
+        "configuration_file_url": "${var.asav_config_file_url}"
+        "configure_asav_topic_id": local.configure_asav_topic_id,
+        "log_level": "INFO"
+    }
 }
-}
-
 
 resource "oci_artifacts_container_repository" "post_launch_actions_container_repository" {
     #Required
     compartment_id = var.compartment_id
     display_name = "${var.autoscale_group_prefix}_post_launch_actions/post_launch_actions"
+}
+
+resource "oci_artifacts_container_repository" "configure_asav_container_repository" {
+  #Required
+  compartment_id = var.compartment_id
+  display_name = "${var.autoscale_group_prefix}_configure_asav/configure_asav"
 }
 
 resource "oci_artifacts_container_repository" "publish_metrics_container_repository" {

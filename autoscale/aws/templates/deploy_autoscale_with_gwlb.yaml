@@ -744,6 +744,7 @@ Resources:
   ASAvGroup:
     DependsOn:
       - LifeCycleEvent
+      - ConfigureASAvEvent
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: !Join ['-', [!Ref AutoscaleGrpNamePrefix, !Ref PodNumber ] ]

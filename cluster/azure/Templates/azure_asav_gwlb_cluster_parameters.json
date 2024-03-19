@@ -1,0 +1,64 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "resourceNamePrefix": {
+        "value": "asav"
+      },
+      "virtualNetworkRg": {
+        "value": "asav-gwlb-clus-rg"
+      },
+      "virtualNetworkName": {
+        "value": "asav-gwlb-clus-vnet"
+      },
+      "mgmtSubnet": {
+        "value": "mgmt"
+      },
+      "dataInterfaceSubnet": {
+        "value": "data"
+      },
+      "gatewayLoadBalancerIP": {
+        "value": "10.7.3.4"
+      },
+      "cclSubnet": {
+        "value": "ccl"
+      },
+      "internalPortNumber": {
+        "value": "2000"
+      },
+      "externalPortNumber": {
+        "value": "2001"
+      },
+      "internalSegmentId": {
+        "value": "800"
+      },
+      "externalSegmentId": {
+        "value": "801"
+      },
+      "clusterGroupName": {
+        "value": "asav-gwlb-cluster"
+      },
+      "asaLicensingSku": {
+        "value": "asav-azure-byol"
+      },
+      "softwareVersion": {
+        "value": "92022.0.0"
+      },
+      "vmSize": {
+        "value": "Standard_D3_v2"
+      },
+    
+      "asaAdminUserName": {
+        "value": "cisco"
+      },
+      "asaAdminUserPassword": {
+        "value": ""
+      },
+      "asavNodeCount": {
+        "value": "4"
+      },
+      "asavConfigFileUrl": {
+        "value": ""
+      }
+      }
+}

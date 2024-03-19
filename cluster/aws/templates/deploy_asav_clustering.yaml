@@ -101,6 +101,17 @@ Parameters:
      - "Yes"
      - "No"
     Default: "Yes"
+  TargetFailover:
+    Description: >-
+      With target failover, Gateway load balancer  handles existing traffic flows after a target becomes unhealthy or when the target is deregistered.
+      You can manage these flows by either rehashing them (rebalance) or leaving them at the default state (no_rebalance).
+      Enable Target Failover Support ("rebalance" or "no_rebalance").
+      This feature is only supported on version 9.20 onwards.
+    Type: String
+    AllowedValues:
+     - "rebalance"
+     - "no_rebalance"
+    Default: "no_rebalance"
   S3BktName:
     Description: The S3 Bucket name for lambda function
     Type: String
@@ -306,6 +317,7 @@ Metadata:
           - DeployGWLBE
           - VpcIdLBE
           - GWLBESubnetId
+          - TargetFailover
           - TgHealthPort
       - Label:
           default: Cisco ASAv Instance Configuration
@@ -344,6 +356,8 @@ Metadata:
         default: Enter Valid Availability Zone
       S3BktName:
         default: S3 Bucket Name
+      TargetFailover:
+        default: Target Failover
       TgHealthPort:
         default: Enter Health Check Port for Gateway Load Balancer
       InstanceType:
@@ -479,6 +493,11 @@ Resources:
       HealthCheckProtocol: TCP
       VpcId: !Ref VpcId
       TargetType: ip
+      TargetGroupAttributes:
+      - Key: target_failover.on_deregistration
+        Value: !Ref TargetFailover
+      - Key: target_failover.on_unhealthy
+        Value: !Ref TargetFailover
   listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -799,6 +818,7 @@ Resources:
   ASAvGroup:
     DependsOn:
       - LifeCycleEvent
+      - InstanceEvent
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: !Join ['-', [!Ref ClusterGrpNamePrefix, !Ref ClusterNumber ] ]

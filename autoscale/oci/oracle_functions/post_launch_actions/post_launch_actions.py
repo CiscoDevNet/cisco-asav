@@ -25,531 +25,29 @@ Purpose:    This python file has ASAv related class & methods
 import io
 import json
 import logging
-
 import oci
 import time
-import paramiko
 import socket
 import base64
 
 from fdk import response
 
-logging.basicConfig(force=True, level="INFO")
-logging.getLogger("paramiko").setLevel(logging.WARNING)
 logger = logging.getLogger()
 
-class ParamikoSSH:
-    """
-        This Python class supposed to handle interactive SSH session
-    """
-    def __init__(self, server, port=22, username='admin', password=None):
-        self.ssh = paramiko.SSHClient()
-        self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.port = port
-        self.server = server
-        self.username = username
-        self.password = password
-        self.timeout = 60
-        self.SUCCESS = 'SUCCESS'
-        self.FAIL = 'FAILURE'
-        self.AUTH_EXCEPTION = 'Authentication Exception Occurred'
-        self.BAD_HOST_KEY_EXCEPTION = 'Bad Key Exception occurred'
-        self.SSH_EXCEPTION = 'SSH Exception Occurred'
-
-    def close(self):
-        self.ssh.close()
-
-    def verify_server_ip(self):
-        try:
-            socket.inet_aton(self.server)
-            return self.SUCCESS
-        except socket.error as e:
-            logger.error("POST LAUNCH ACTION: Exception occurred: {}".format(repr(e)))
-            return self.FAIL
-        except Exception as e:
-            logger.error("POST LAUNCH ACTION: Exception occurred: {}".format(repr(e)))
-            return self.FAIL
-
-    def connect(self, username, password):
-        """
-        Purpose:    Opens a connection to server
-        Returns:    Success or failure, if failure then returns specific error
-                    self.SUCCESS = 'SUCCESS'
-                    self.FAIL = 'FAILURE'
-                    self.AUTH_EXCEPTION = 'Authentication Exception Occurred'
-                    self.BAD_HOST_KEY_EXCEPTION = 'Bad Key Exception occurred'
-                    self.SSH_EXCEPTION = 'SSH Exception Occurred'
-        """
-        if self.verify_server_ip() == 'FAILURE':
-            return self.FAIL
-        try:
-            self.ssh.connect(self.server, self.port, username, password, timeout=29, banner_timeout=29, auth_timeout=29)
-            logger.debug("POST LAUNCH ACTION: Connection to %s on port %s is successful!" % (self.server, self.port))
-            return self.SUCCESS
-        except paramiko.AuthenticationException as exc:
-            logger.warn("POST LAUNCH ACTION: Exception occurred: {}".format(repr(exc)))
-            return self.AUTH_EXCEPTION
-        except paramiko.BadHostKeyException as exc:
-            logger.debug("POST LAUNCH ACTION: Exception occurred: {}".format(repr(exc)))
-            return self.BAD_HOST_KEY_EXCEPTION
-        except paramiko.SSHException as exc:
-            logger.debug("POST LAUNCH ACTION: Exception occurred: {}".format(repr(exc)))
-            return self.SSH_EXCEPTION
-        except BaseException as exc:
-            logger.debug("POST LAUNCH ACTION: Exception occurred: {}".format(repr(exc)))
-            return self.FAIL
-        except Exception as exc:
-            logger.debug("POST LAUNCH ACTION: Unknown Exception: {}".format(repr(exc)))
-            return self.FAIL
-
-    def execute_cmd(self, command):
-        """
-        Purpose:    Performs an interactive shell action
-        Parameters: Command
-        Returns:    action status, output & error
-        """
-        if self.connect(self.username, self.password) != self.SUCCESS:
-            raise ValueError("POST LAUNCH ACTION: Unable to connect to server")
-        try:
-            ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(command, timeout=60)
-        except paramiko.SSHException as exc:
-            logger.error("POST LAUNCH ACTION: Exception occurred: {}".format(repr(exc)))
-            self.ssh.close()
-            return self.FAIL, None, None
-        else:
-            output = ssh_stdout.readlines()
-            error = ssh_stderr.readlines()
-            logger.debug('POST LAUNCH ACTION: SSH command output: ' + str(output))
-            self.ssh.close()
-            return self.SUCCESS, str(output), str(error)
-
-    def invoke_interactive_shell(self):
-        """
-        Purpose:    Performs an interactive shell action
-        Parameters:
-        Returns:    a new Channel connected to the remote shell
-        """
-        try:
-            shell = self.ssh.invoke_shell()
-        except paramiko.SSHException as exc:
-            logger.error("POST LAUNCH ACTION: Exception occurred: {}".format(repr(exc)))
-            self.ssh.close()
-            return self.FAIL, None
-        else:
-            return self.SUCCESS, shell
-
-    def handle_interactive_session(self, command_set, username, password):
-        """
-        Purpose:    Performs an interactive shell action
-        Parameters:
-            command_set: a dict of set of commands expressed in command & expect values
-            Example:
-                {
-                  "cmd1": [
-                    {
-                      "command": "configure password",
-                      "expect": "Enter current password:"
-                    },
-                    {
-                      "command": "Cisco123789!",
-                      "expect": "Enter new password:"
-                    },
-                    {
-                      "command": "Cisco@123123",
-                      "expect": "Confirm new password:"
-                    },
-                    {
-                      "command": "Cisco@123123",
-                      "expect": "Password Update successful"
-                    }
-                  ]
-                }
-        Returns:
-        Raises:
-            ValueError based on the error
-        """
-        if self.connect(username, password) != self.SUCCESS:
-            raise ValueError("POST LAUNCH ACTION: Unable to connect to server")
-        status, shell = self.invoke_interactive_shell()
-        if status != self.SUCCESS:
-            raise ValueError("POST LAUNCH ACTION: Unable to invoke shell")
-        if self.send_cmd_and_wait_for_execution(shell, '\n') is not None:
-            for key in command_set:
-                set = command_set[key]
-                for i in range(0, len(set)):
-                    command = set[i]['command'] + '\n'
-                    expect = set[i]['expect']
-                    if self.send_cmd_and_wait_for_execution(shell, command, expect) is not None:
-                        pass
-                    else:
-                        raise ValueError("POST LAUNCH ACTION: Unable to execute command")
-        self.ssh.close()
-        return
-
-    def send_cmd_and_wait_for_execution(self, shell, command, wait_string='>'):
-        """
-        Purpose:    Sends command and waits for string to be received
-        Parameters: command, wait_string
-        Returns:    rcv_buffer or None
-        Raises:
-        """
-        shell.settimeout(self.timeout)
-        rcv_buffer = ''
-        try:
-            shell.send(command)
-            while wait_string not in rcv_buffer:
-                rcv_buffer = str(shell.recv(10000).decode("utf-8")) + rcv_buffer
-            logger.debug("POST LAUNCH ACTION: Command Output: " + rcv_buffer)
-            return rcv_buffer
-        except Exception as e:
-            logger.error("POST LAUNCH ACTION: Error occurred: {}".format(repr(e)))
-            return None
-
-class ASAvInstance:
-    """
-        This is ASAv class, supposed to instantiated only in Configure_ASAv Lambda function
-    """
-    def __init__(self, management_public_ip, asav_password, ssh_port=22, asav_username='admin'):
-        self.ip_to_connect = management_public_ip
-        self.port = ssh_port
-        self.username = asav_username
-        self.password = asav_password
-        self.defaultPassword = 'AsAv_AuT0Scale'
-        self.COMMAND_RAN = 'COMMAND_RAN'
-        self.SUCCESS = 'SUCCESS'
-        self.FAIL = 'FAILURE'
-
-    def connect_asa(self):
-        """
-        Purpose:    This provides object of ParamikoSSH class
-        Parameters:
-        Returns:    Class object, None
-        Raises:
-        """
-
-        connect = ParamikoSSH(self.ip_to_connect, self.port, self.username, self.password)
-        logger.debug(connect)
-        return connect
-
-    # Run an independent command on FTDv
-    def run_asav_command(self, command):
-        """
-        Purpose:    To run a single command
-        Parameters: command
-        Returns:    'FAILURE', 'COMMAND_RAN'
-        Raises:
-        """
-        output, error = '', ''
-        cnt_asa = self.connect_asa()
-        try:
-            status, output, error = cnt_asa.execute_cmd(command)
-        except Exception as e:
-            logger.error("POST LAUNCH ACTION: Error occurred: {}".format(repr(e)))
-            cnt_asa.close()
-            return self.FAIL, output, error
-        if status == self.SUCCESS:
-            logger.debug("%s %s %s" % (self.COMMAND_RAN, output, error))
-            cnt_asa.close()
-            return self.COMMAND_RAN, output, error
-        else:
-            logger.warn("POST LAUNCH ACTION: Unable to run command output: %s error: %s" % (output, error))
-            cnt_asa.close()
-            return self.FAIL, output, error
-
-    # function to change password(admin) from prev_password to new_password
-    def change_asa_password(self, cnt_asa, prev_password, new_password):
-        """
-        Purpose:    To change password from default to user provided
-        Parameters: ParamikoSSH class object, Default password, New Password
-        Returns:    SUCCESS, None
-        Raises:
-        """
-        write_memory_config = 'copy /noconfirm running-config startup-config'
-        expected_outcome_write_memory_config = '#'
-        change_password_cmd = "change-password old-password " + prev_password + " new-password " + new_password
-        change_enable_password_cmd = 'enable ' + 'password ' + new_password
-        command_set = {
-            "cmd": [
-                {
-                    "command": "login",
-                    "expect": "Username:"
-                },
-                {
-                    "command": self.username,
-                    "expect": "Password:"
-                },
-                {
-                    "command": prev_password,
-                    "expect": "#"
-                },
-                {
-                    "command": change_password_cmd,
-                    "expect": "#"
-                },
-                {
-                    "command": "configure terminal",
-                    "expect": "(config)#"
-                },
-                {
-                    "command": "A",
-                    "expect": "#"
-                },
-                {
-                    "command": change_enable_password_cmd,
-                    "expect": "#"
-                },
-                {
-                    "command": write_memory_config,
-                    "expect": expected_outcome_write_memory_config
-                }
-            ]
-        }
-
-        try:
-            cnt_asa.handle_interactive_session(command_set, self.username, prev_password)
-        except ValueError as e:
-            logger.error("POST LAUNCH ACTION: Error occurred: {}".format(repr(e)))
-            return None
-        else:
-            return 'SUCCESS'
-        finally:
-            cnt_asa.close()
-
-    def check_asav_ssh_status(self):
-        """
-        Purpose:    To check ASAv SSH is accessible
-        Parameters:
-        Returns:    SUCCESS, FAILURE
-        Raises:
-        """
-        cnt_asa = self.connect_asa()
-        status = cnt_asa.connect(self.username, self.password)
-        logger.info("POST LAUNCH ACTION: ASAv SSH Connect Status : {}".format(status))
-        if status == 'SUCCESS':
-            cnt_asa.close()
-            return 'SUCCESS'
-        elif status == 'Authentication Exception Occurred':
-            status = cnt_asa.connect(self.username, self.defaultPassword)
-            if status == 'SUCCESS':
-                cnt_asa.close()  # As below function triggers interactive shell
-                if self.change_asa_password(cnt_asa, self.defaultPassword, self.password) == 'SUCCESS':
-                    return 'SUCCESS'
-            else:
-                logger.error("POST LAUNCH ACTION: Unable to authenticate to ASAv instance, please check password!")
-                return 'FAILURE'
-        else:
-            cnt_asa.close()
-        return 'FAILURE'
-
-    # Polling connectivity to FTDv for specified 'minutes'
-    def poll_asav_ssh(self, minutes):
-        """
-        Purpose:    To poll ASAv for SSH accessibility
-        Parameters: Minutes
-        Returns:    SUCCESS, TIMEOUT
-        Raises:
-        """
-        logger.info("POST LAUNCH ACTION: Checking if instance SSH access is available!")
-        if minutes <= 1:
-            minutes = 2
-        for i in range(1, 2 * minutes):
-            if i != ((2 * minutes) - 1):
-                status = self.check_asav_ssh_status()
-                if status != "SUCCESS":
-                    logger.info(str(i) + " Sleeping for 30 seconds")
-                    time.sleep(30)
-                else:
-                    return "SUCCESS"
-        logger.info("POST LAUNCH ACTION: Failed to connect to device retrying... ")
-        return "TIMEOUT"
-
-    def configure_hostname(self, vm_name):
-        """
-        Purpose:    To configure hostname on ASAv
-        Parameters:
-        Returns:    'FAILURE', 'COMMAND_RAN'
-        Raises:
-        """
-        cnt_asa = self.connect_asa()
-        cmd = 'hostname ' + vm_name
-        expected_outcome = vm_name + "(config)#"
-        write_memory_config = 'copy /noconfirm running-config startup-config'
-        expected_outcome_write_memory_config = '#'
-        command_set = {
-            "cmd": [
-                {
-                    "command": "enable",
-                    "expect": "Password:"
-                },
-                {
-                    "command": self.password,
-                    "expect": "#"
-                },
-                {
-                    "command": "conf t",
-                    "expect": "(config)#"
-                },
-                {
-                    "command": cmd,
-                    "expect": expected_outcome
-                },
-                {
-                    "command": write_memory_config,
-                    "expect": expected_outcome_write_memory_config
-                }
-            ]
-        }
-        try:
-            cnt_asa.handle_interactive_session(command_set, self.username, self.password)
-        except ValueError as e:
-            logger.error(f"POST LAUNCH ACTION: Error occurred in host name configuration: {repr(e)}")
-            return self.FAIL
-        else:
-            return self.SUCCESS
-
-    def run_copy_file_running_config(self, url, file_path):
-        """
-        Purpose:    To change configure running-config from HTTP/HTTPS
-        Parameters: url, s3 bucket/any http server path
-        Returns:    SUCCESS, None
-        Raises:
-        """
-        cmd1 = 'copy /noconfirm ' + url + ' ' + file_path
-        cmd2 = 'copy /noconfirm ' + file_path + ' running-config'
-        write_memory_config = 'copy /noconfirm running-config startup-config'
-        expected_outcome_write_memory_config = '#'
-        command_set = {
-            "cmd": [
-                {
-                    "command": "enable",
-                    "expect": "Password:"
-                },
-                {
-                    "command": self.password,
-                    "expect": "#"
-                },
-                {
-                    "command": "conf t",
-                    "expect": "#"
-                },
-                {
-                    "command": cmd1,
-                    "expect": "#"
-                },
-                {
-                    "command": cmd2,
-                    "expect": "#"
-                },
-                {
-                    "command": write_memory_config,
-                    "expect": expected_outcome_write_memory_config
-                }
-            ]
-        }
-        # Do not print below log, will print password on log
-        # logger.info("Initiating configuration of ASAv with command set: "
-        #             + json.dumps(command_set, separators=(',', ':')))
-        logger.debug("Executing commands: " + cmd1)
-        logger.debug("Executing commands: " + cmd2)
-        cnt_asa = self.connect_asa()
-        try:
-            cnt_asa.handle_interactive_session(command_set, self.username, self.password)
-        except ValueError as e:
-            logger.error("POST LAUNCH ACTION: Error occurred: {}".format(repr(e)))
-            return None
-        else:
-            return 'SUCCESS'
-        finally:
-            cnt_asa.close()
-
-
-    def one_time_interface_configuration(self, inside_interface_ip, inside_subnet_netmask, outside_interface_ip, outside_subnet_netmask):
-        """
-        Purpose:
-        Parameters:
-        Returns:    SUCCESS, None
-        Raises:
-        """
-        cmd1 = "ip address "+str(inside_interface_ip)+" "+str(inside_subnet_netmask)
-        cmd2 = "ip address "+str(outside_interface_ip)+" "+str(outside_subnet_netmask)
-        write_memory_config = 'copy /noconfirm running-config startup-config'
-        expected_outcome_write_memory_config = '#'
-        command_set = {
-            "cmd": [
-                {
-                    "command": "enable",
-                    "expect": "Password:"
-                },
-                {
-                    "command": self.password,
-                    "expect": "#"
-                },
-                {
-                    "command": "conf t",
-                    "expect": "#"
-                },
-                {
-                    "command": "int g0/0",
-                    "expect": "#"
-                },
-                {
-                    "command": "nameif inside",
-                    "expect": "#"
-                },
-                {
-                    "command": cmd1,
-                    "expect": "#"
-                },
-                {
-                    "command": "no shut",
-                    "expect": "#"
-                },
-                {
-                    "command": "int g0/1",
-                    "expect": "#"
-                },
-                {
-                    "command": "nameif outside",
-                    "expect": "#"
-                },
-                {
-                    "command": cmd2,
-                    "expect": "#"
-                },
-                {
-                    "command": "no shut",
-                    "expect": "#"
-                },
-                {
-                    "command": write_memory_config,
-                    "expect": expected_outcome_write_memory_config
-                }
-            ]
-        }
-        # Do not print below log, will print password on log
-        # logger.info("Initiating configuration of ASAv with command set: "
-        #             + json.dumps(command_set, separators=(',', ':')))
-        cnt_asa = self.connect_asa()
-        try:
-            cnt_asa.handle_interactive_session(command_set, self.username, self.password)
-        except ValueError as e:
-            logger.error("POST LAUNCH ACTION: Error occurred: {}".format(repr(e)))
-            return None
-        else:
-            return 'SUCCESS'
-        finally:
-            cnt_asa.close()
-
 class PostLaunchAction:
-    def __init__(self, auth):
-        self.signer = auth
-        self.computeClient = oci.core.ComputeClient(config={}, signer=auth)
-        self.virtualNetworkClient = oci.core.VirtualNetworkClient(config={}, signer=auth)
-        self.computeManagementClient = oci.core.ComputeManagementClient(config={}, signer=auth)
-        self.loadBalancerClient = oci.load_balancer.LoadBalancerClient(config={}, signer=auth)
+    def __init__(self, compartmentId, instanceId):
+        self.signer = oci.auth.signers.get_resource_principals_signer()
+        self.computeClient = oci.core.ComputeClient(config={}, signer=self.signer)
+        self.virtualNetworkClient = oci.core.VirtualNetworkClient(config={}, signer=self.signer)
+        self.computeManagementClient = oci.core.ComputeManagementClient(config={}, signer=self.signer)
+        self.loadBalancerClient = oci.load_balancer.LoadBalancerClient(config={}, signer=self.signer)
+        self.ons_client = oci.ons.NotificationDataPlaneClient(config={}, signer=self.signer)
+        self.compartmentId = compartmentId
+        self.instanceId = instanceId
         self.retries = 3
+        self.identifier = ''
 
-    def get_all_instances_id_in_pool(self, compartmentId, instancePoolId):
+    def get_all_instances_id_in_pool(self, instancePoolId):
         """
         Purpose:   To get OCID of all Instances in the Instance Pool
         Parameters: Compartment OCID, Instance Pool OCID
@@ -559,19 +57,19 @@ class PostLaunchAction:
         for i in range(0, self.retries):
             try:
                 all_instances_in_instance_pool = self.computeManagementClient.list_instance_pool_instances(
-                                            compartment_id = compartmentId,
+                                            compartment_id = self.compartmentId,
                                             instance_pool_id = instancePoolId).data
 
                 all_instances_id = [instance.id for instance in all_instances_in_instance_pool]
                 return all_instances_id
 
             except Exception as e:
-                logger.error("POST LAUNCH ACTION: ERROR IN GETTING INSTANCE LIST FROM INSTANCE POOL, RETRY COUNT:{0}, REASON:{1}".format(str(i+1), repr(e)))
+                logger.error(f"POST LAUNCH ACTION {self.identifier}: ERROR IN GETTING INSTANCE LIST FROM INSTANCE POOL, RETRY COUNT:{str(i+1)}, REASON:{repr(e)}")
                 continue
 
         return None
 
-    def terminate_instance(self, instanceId):
+    def terminate_instance(self):
         """
         Purpose:   To Terminate any Instance in the Instance Pool (Not Scale-In)
         Parameters: Instance OCID to delete.
@@ -581,18 +79,18 @@ class PostLaunchAction:
         for i in range(0, self.retries):
             try:
                 terminate_instance_response = self.computeClient.terminate_instance(
-                instance_id = instanceId,
+                instance_id = self.instanceId,
                 preserve_boot_volume=False)
 
-                logger.info("POST LAUNCH ACTION: INSTANCE TERMINATED AS SOMETHING WENT WRONG, PLEASE CHECK PREVIOUS LOGS")
+                logger.info(f"POST LAUNCH ACTION {self.identifier}: INSTANCE TERMINATED AS SOMETHING WENT WRONG, PLEASE CHECK PREVIOUS LOGS")
                 return True
 
             except Exception as e:
-                logger.info("POST LAUNCH ACTION: ERROR OCCURRED WHILE TERMINATING INSTANCE, RETRY COUNT:{0}, REASON:{1}".format(str(i+1), repr(e)))
+                logger.info(f"POST LAUNCH ACTION {self.identifier}: ERROR OCCURRED WHILE TERMINATING INSTANCE, RETRY COUNT:{str(i+1)}, REASON:{repr(e)}")
                 continue
         return False
 
-    def get_management_public_ip(self, compartmentId, instanceId):
+    def get_management_public_ip(self):
         """
         Purpose:    To get Management interface (vnic) public IP.
         Parameters: Compartment OCID, Instance OCID.
@@ -603,8 +101,8 @@ class PostLaunchAction:
             try:
                 vnic_attachments = oci.pagination.list_call_get_all_results(
                 self.computeClient.list_vnic_attachments,
-                compartment_id = compartmentId,
-                instance_id = instanceId,
+                compartment_id = self.compartmentId,
+                instance_id = self.instanceId,
                 ).data
 
                 vnics = [self.virtualNetworkClient.get_vnic(va.vnic_id).data for va in vnic_attachments]
@@ -615,12 +113,12 @@ class PostLaunchAction:
                         return ip_response
 
             except Exception as e:
-                logger.error("POST LAUNCH ACTION: ERROR IN RETRIEVING MANAGEMENT PUBLIC IP "+"RETRY COUNT:"+str(i)+"  "+ repr(e))
+                logger.error(f"POST LAUNCH ACTION {self.identifier}: ERROR IN RETRIEVING MANAGEMENT PUBLIC IP, RETRY COUNT: {str(i)}, ERROR: {repr(e)}")
                 continue
 
         return None
 
-    def attach_interface(self, instanceId, interfaceName, subnetId, nsgIdList):
+    def attach_interface(self, interfaceName, subnetId, nsgIdList):
         """
         Purpose:   To create Non-primary interface (vnic) in a Instance.
         Parameters: Instance OCID, Interface Name, Subnet OCID
@@ -637,14 +135,14 @@ class PostLaunchAction:
                     skip_source_dest_check = True,
                     subnet_id = subnetId,
                     nsg_ids = nsgIdList),
-                    instance_id = instanceId,
+                    instance_id = self.instanceId,
                     display_name = interfaceName)
 
                 attach_vnic_response = computeCompositeClient.attach_vnic_and_wait_for_state(attach_vnic_details, wait_for_states=["ATTACHED", "UNKNOWN_ENUM_VALUE"]).data
                 vnicId = attach_vnic_response.vnic_id
 
             except Exception as e:
-                logger.error("POST LAUNCH ACTION: RETRY: {} ERROR IN ATTACHING {} VNIC, ERROR {}".format(i, interfaceName, e))
+                logger.error(f"POST LAUNCH ACTION {self.identifier}: RETRY: {i} ERROR IN ATTACHING {interfaceName} VNIC, ERROR {e}")
                 time.sleep(10)
                 continue
             """
@@ -659,7 +157,7 @@ class PostLaunchAction:
                 return update_vnic_response
 
             except Exception as e:
-                logger.error("POST LAUNCH ACTION:  RETRY: {} ERROR IN UPDATING {} VNIC, ERROR {}".format(i, interfaceName, e))
+                logger.error(f"POST LAUNCH ACTION {self.identifier}:  RETRY: {i} ERROR IN UPDATING {interfaceName} VNIC, ERROR {e}")
         return None
 
     def add_to_backend_set(self, loadBalancerId, backendSetName, ipAddr, portNo):
@@ -686,7 +184,7 @@ class PostLaunchAction:
                 return "Successful"
 
             except Exception as e:
-                logger.error("POST LAUNCH ACTION: ERROR IN ADDING TO BACKEND SET "+"RETRY COUNT:"+str(i+1)+"  "+ repr(e) + repr(create_backend_response))
+                logger.error(f"POST LAUNCH ACTION {self.identifier}: ERROR IN ADDING TO BACKEND SET, RETRY COUNT: {str(i+1)}, ERROR: {repr(e)}, RESPONSE: {repr(create_backend_response)}")
                 continue
 
         return "Failed"
@@ -710,7 +208,7 @@ class PostLaunchAction:
             netmask = ".".join(map(str, mask))
             return netmask
         except Exception as e:
-            logger.error("POST LAUNCH ACTION: ERROR IN CALCULATING NETMASK"+repr(e))
+            logger.error(f"POST LAUNCH ACTION {self.identifier}: ERROR IN CALCULATING NETMASK{repr(e)}")
             return None
 
     def decrypt_cipher(self, cipherText, cryptEndpoint, keyId):
@@ -732,40 +230,53 @@ class PostLaunchAction:
                 return base64.b64decode(decrypt_response.plaintext).decode('utf-8')
 
             except Exception as e:
-                logger.error("POST LAUNCH ACTION: ERROR IN DECRYPTING PASSWORD ERROR: {}".format(e))
+                logger.error(f"POST LAUNCH ACTION {self.identifier}: ERROR IN DECRYPTING PASSWORD ERROR: {e}")
                 continue
 
         return None
 
+    def publish_message(self, topicId, msg):
+        """
+        Purpose:   To publish message to OCI Notification.
+        Parameters: Topic ID, Message
+        Returns:    Bool
+        Raises:
+        """
+        for i in range(0, self.retries):
+            try:
+                publish_message_response = self.ons_client.publish_message(
+                    topic_id = topicId,
+                    message_details=oci.ons.models.MessageDetails(
+                        body = json.dumps(msg),
+                        title = "Configure_ASAv_Recall")).data
 
+                return True
+            except Exception as e:
+                logger.info(f"POST LAUNCH ACTION {self.identifier}: ERROR IN CALLING CONFIGURE ASAv {repr(e)}")
+                continue
+        return False
+    
 def handler(ctx, data: io.BytesIO=None):
     """
         Purpose:   Main Function, receive JSON payload, Environmental Variable, implementation logic.
         Parameters: ctx (Contains Environmental Variables passed), data (Json Payload emit by event which called this function)
         Returns:    Response
         Raises:
-        """
+    """
+    # GET FUNCTION PAYLOAD
     try:
         body = json.loads(data.getvalue())
         data = body.get("data")
         instanceId = data.get("resourceId")
         compartmentId = data.get("compartmentId")
-
-        logger.info("POST LAUNCH ACTION HAS BEEN CALLED FOR INSTANCE ID: {0}".format(instanceId))
+        begin_time = int(time.time())
+        identifier = str(instanceId[-5:])
+        logger.info(f"{identifier} ----POST LAUNCH ACTION CALLED----")
     except Exception as ex:
-        logger.error('POST LAUNCH ACTION: ERROR IN PARSING JSON PAYLOAD, PLEASE MANUALLY DELETE THE INSTANCE FOR WHICH IT FAILED: ' + repr(ex))
-        return "POST LAUNCH ACTION: ERROR IN PARSING JSON PAYLOAD"
+        logger.error(f"POST LAUNCH ACTION: ERROR IN PARSING JSON PAYLOAD, PLEASE MANUALLY DELETE THE INSTANCE FOR WHICH IT FAILED: {repr(ex)}")
+        return f"POST LAUNCH ACTION: ERROR IN PARSING JSON PAYLOAD, {repr(ex)}"
 
-    try:
-        signer = oci.auth.signers.get_resource_principals_signer()
-    except Exception as e:
-        logger.error("POST LAUNCH ACTION: ERROR IN OBTAINING SIGNER  "+repr(e))
-        logger.info("AFTER FIXING ISSUE WITH SIGNER, PLEASE MANUALLY DELETE THE INSTANCE FOR WHICH IT FAILED")
-        return "POST LAUNCH ACTION: FAILED TO CREATE SIGNER"
-
-    # POST LAUNCH ACTION CLASS OBJECT
-    postLaunchActionObject = PostLaunchAction(signer)
-
+    #GET ENVIRONMENT VARIABLES
     try:
         environmentVariables = ctx.Config()
         outsideInterfaceName = environmentVariables["outside_interface_name"]
@@ -785,123 +296,123 @@ def handler(ctx, data: io.BytesIO=None):
         asavEncryptedPassword = environmentVariables["encrypted_password"]
         cryptEndpoint = environmentVariables["cryptographic_endpoint"]
         master_key_id = environmentVariables["master_key_id"]
-
+        configure_asav_topic_id = environmentVariables["configure_asav_topic_id"]
+        log_level = environmentVariables["log_level"] # Set to DEBUG in function environment variabled for detailed logs.
     except Exception as e:
-        logger.error("POST LAUNCH ACTION: ERROR IN RETRIEVING ENVIRONMENT VARIABLES "+repr(e))
-        return "POST LAUNCH ACTION FAILED WITH THIS INSTANCE"
+        logger.error(f"POST LAUNCH ACTION {identifier}: ERROR IN RETRIEVING ENVIRONMENT VARIABLES {repr(e)}")
+        return f"POST LAUNCH ACTION {identifier}: FAILED WITH THIS INSTANCE"
 
-    all_instances_id = postLaunchActionObject.get_all_instances_id_in_pool(compartmentId, instancePoolId)
+    # SETING LOG LEVEL
+    try:
+        if log_level == "DEBUG":
+            logging.basicConfig(force=True, level="DEBUG")
+        else:
+            logging.basicConfig(force=True, level="INFO")
+    except Exception as e:
+        logger.error(f"POST LAUNCH ACTION {identifier}: ERROR IN SETTING LOG LEVEL")
+        logging.basicConfig(force=True, level="INFO")
+    
+    # CREATING POST LAUNCH ACTION CLASS OBJECT
+    postLaunchActionObject = PostLaunchAction(compartmentId, instanceId)
+    postLaunchActionObject.identifier = identifier
+
+    # CHECK IF INSTANCE IS PART OF AUTOSCALE INSTANCE POOL
+    all_instances_id = postLaunchActionObject.get_all_instances_id_in_pool(instancePoolId)
+    logger.debug(f"POST LAUNCH ACTION {identifier}: All instances id in the pool : {all_instances_id}")
     if all_instances_id == None:
         return
 
     if instanceId in all_instances_id:
         try:
-            time.sleep(20) # To give enough time for management vnic to come up properly.
-            ############################### ATTACHING INSIDE VNIC ################################
-            attach_inside_interface_response = postLaunchActionObject.attach_interface(instanceId, insideInterfaceName, insideSubnetId, [insideNSGId])
+            time.sleep(25) # To give enough time for management vnic to come up properly.
+            #______________________________________________________________________________________________________________________
+            # ATTACHING INSIDE VNIC
+            attach_inside_interface_response = postLaunchActionObject.attach_interface(insideInterfaceName, insideSubnetId, [insideNSGId])
+            logger.debug(f"POST LAUNCH ACTION {identifier}: Attach inside interface response {attach_inside_interface_response}")
             if attach_inside_interface_response != None:
-                logger.info("POST LAUNCH ACTION Response : INSIDE VNIC attached successfully")
+                logger.info(f"POST LAUNCH ACTION {identifier}: Inside VNIC attached successfully")
                 insideInterfaceIpAddress = attach_inside_interface_response.private_ip
             else:
-                logger.error("POST LAUNCH ACTION: Inside VNIC Attachment Failed, INSTACE WILL BE TERMINATED")
-                terimate_instance_response = postLaunchActionObject.terminate_instance(instanceId)
-                return "POST LAUNCH ACTION FAILED WITH THIS INSTANCE"
-            #=======================================================================================#
-            ############################### ATTACHING OUTSIDE VNIC ##################################
-            attach_outside_interface_response = postLaunchActionObject.attach_interface(instanceId, outsideInterfaceName, outsideSubnetId, [outsideNSGId])
+                logger.error(f"POST LAUNCH ACTION {identifier}: INSIDE VNICE ATTACHMENT FAILED, INSTACE WILL BE TERMINATED")
+                terimate_instance_response = postLaunchActionObject.terminate_instance()
+                return f"POST LAUNCH ACTION {identifier}: FAILED WITH THIS INSTANCE"
+            time.sleep(5)
+            #______________________________________________________________________________________________________________________
+            # ATTACHING OUTSIDE VNIC
+            attach_outside_interface_response = postLaunchActionObject.attach_interface(outsideInterfaceName, outsideSubnetId, [outsideNSGId])
+            logger.debug(f"POST LAUNCH ACTION {identifier}: Attach outside interface response {attach_outside_interface_response}")
             if attach_outside_interface_response != None:
-                logger.info("POST LAUNCH ACTION Response : Outside VNIC attached successfully")
+                logger.info(f"POST LAUNCH ACTION {identifier}: Outside VNIC attached successfully")
                 outsideInterfaceIpAddress = attach_outside_interface_response.private_ip
             else:
-                logger.error("POST LAUNCH ACTION: Outside VNIC Attachment Failed INSTACE WILL BE TERMINATED")
-                terimate_instance_response = postLaunchActionObject.terminate_instance(instanceId)
-                return "POST LAUNCH ACTION FAILED WITH THIS INSTANCE"
-            #====================================================================================#
+                logger.error(f"POST LAUNCH ACTION {identifier}: OUTSIDE VNIC ATTACHMENT FAILED, INSTACE WILL BE TERMINATED")
+                terimate_instance_response = postLaunchActionObject.terminate_instance()
+                return f"POST LAUNCH ACTION {identifier}: FAILED WITH THIS INSTANCE"
+            time.sleep(5)
+            #______________________________________________________________________________________________________________________
         except Exception as e:
-            logger.error("POST LAUNCH ACTION: EXCEPTION OCCURED WHILE ATTACHING THE INTERFACES, INSTACE WILL BE TERMINATED   "+repr(e))
-            terimate_instance_response = postLaunchActionObject.terminate_instance(instanceId)
-            return "POST LAUNCH ACTION FAILED WITH THIS INSTANCE"
-
-        ############################### ADDING TO INTERNAL LOAD BALANCER ##########################
+            logger.error(f"POST LAUNCH ACTION {identifier}: EXCEPTION OCCURED WHILE ATTACHING THE INTERFACES, INSTACE WILL BE TERMINATED   {repr(e)}")
+            terimate_instance_response = postLaunchActionObject.terminate_instance()
+            return f"POST LAUNCH ACTION {identifier}: FAILED WITH THIS INSTANCE"
+        #__________________________________________________________________________________________________________________________
+        # ADDING TO INTERNAL LOAD BALANCER
         # Note: ILB_ListenerPortNumber is passed in the form of string so we need to create list out of it.
         ilb_listener_port_list = list(map(lambda x: int(x.strip()), ILB_ListenerPortNumber.split(',')))
         try:
             for iPort in ilb_listener_port_list:
                 add_to_ILB_backend_set_response = postLaunchActionObject.add_to_backend_set(ILB_Id, ILB_BackendSetName, insideInterfaceIpAddress, iPort)
-                logger.info("POST LAUNCH ACTION: Add to Internal Backend Set response for listener port {0} is {1}".format(iPort, repr(add_to_ILB_backend_set_response)))
+                logger.debug(f"POST LAUNCH ACTION {identifier}: add_to_ILB_backend_set_response {add_to_ILB_backend_set_response}")
+                time.sleep(5)
+                logger.info(f"POST LAUNCH ACTION {identifier}: Add to Internal Backend Set response for listener port {iPort} is {repr(add_to_ILB_backend_set_response)}")
         except Exception as e:
-            logger.error("POST LAUNCH ACTION: ADD TO INTERNAL BACKEND SET ACTION GOT FAILED INSTACE WILL BE TERMINATED  "+repr(e))
-            terimate_instance_response = postLaunchActionObject.terminate_instance(instanceId)
-            return "POST LAUNCH ACTION FAILED WITH THIS INSTANCE"
-        #===========================================================================================#
-        ############################# ADDING TO EXTERNAL LOAD BALANCER ##############################
+            logger.error(f"POST LAUNCH ACTION {identifier}: ADD TO INTERNAL BACKEND SET ACTION GOT FAILED INSTACE WILL BE TERMINATED  {repr(e)}")
+            terimate_instance_response = postLaunchActionObject.terminate_instance()
+            return f"POST LAUNCH ACTION {identifier}: FAILED WITH THIS INSTANCE"
+        #__________________________________________________________________________________________________________________________
+        # ADDING TO EXTERNAL LOAD BALANCER
         # Note: ELB_ListenerPortNumber is passed in the form of string so we need to create list out of it.
         elb_listener_port_list = list(map(lambda x: int(x.strip()), ELB_ListenerPortNumber.split(',')))
         try:
             for ePort in elb_listener_port_list:
                 add_to_ELB_backend_set_response = postLaunchActionObject.add_to_backend_set(ELB_Id, ELB_BackendSetName, outsideInterfaceIpAddress, ePort)
-                logger.info("POST LAUNCH ACTION: Add to external backend set response for listener port {0} is {1} ".format(ePort, repr(add_to_ELB_backend_set_response)))
+                logger.debug(f"POST LAUNCH ACTION {identifier}: add_to_ELB_backend_set_response {add_to_ELB_backend_set_response}")
+                time.sleep(5)
+                logger.info(f"POST LAUNCH ACTION {identifier}: Add to external backend set response for listener port {ePort} is {repr(add_to_ELB_backend_set_response)}")
         except Exception as e:
-            logger.error("POST LAUNCH ACTION: ADD TO EXTERNAL BACKEND SET ACTION GOT FAILED INSTACE WILL BE TERMINATED  "+repr(e))
-            terimate_instance_response = postLaunchActionObject.terminate_instance(instanceId)
-            return "POST LAUNCH ACTION FAILED WITH THIS INSTANCE"
-        #===========================================================================================#
-        ############################### CONFIGURING ASAV VIA SSH ####################################
-
-        #RETRIEVING NETMASK FROM SUBNET CIDR
-        insideSubnetNetmask = postLaunchActionObject.get_netmask_from_subnet_cidr(insideSubnetId)
-        outsideSubnetNetmask = postLaunchActionObject.get_netmask_from_subnet_cidr(outsideSubnetId)
-
-        logger.info("POST LAUNCH ACTION: Waiting for ASAv to complete first time boot ...")
-        time.sleep(80)
-
-        try:
-            management_public_ip = postLaunchActionObject.get_management_public_ip(compartmentId, instanceId)
-            if management_public_ip == None:
-                logger.info("POST LAUNCH ACTION: INSTACE WILL BE TERMINATED")
-                terimate_instance_response = postLaunchActionObject.terminate_instance(instanceId)
-                return "POST LAUNCH ACTION FAILED WITH THIS INSTANCE"
-
-            asavPassword = postLaunchActionObject.decrypt_cipher(asavEncryptedPassword, cryptEndpoint, master_key_id)
-            asav = ASAvInstance(management_public_ip, asavPassword)
-            asav_ssh_status = asav.poll_asav_ssh(4)
-            if asav_ssh_status != 'SUCCESS':
-                logger.error("POST LAUNCH ACTION: NOT ABLE TO GET SSH ON ASAV, INSTACE WILL BE TERMINATED")
-                terimate_instance_response = postLaunchActionObject.terminate_instance(instanceId)
-                return "POST LAUNCH ACTION FAILED WITH THIS INSTANCE"
-
-            one_time_interface_configuration_response = asav.one_time_interface_configuration(insideInterfaceIpAddress, insideSubnetNetmask, outsideInterfaceIpAddress,outsideSubnetNetmask)
-            if one_time_interface_configuration_response != "SUCCESS":
-                logger.info("POST LAUNCH ACTION: ERROR OCCURRED IN INTERFACE CONFIGURATION, INSTACE WILL BE TERMINATED")
-                terimate_instance_response = postLaunchActionObject.terminate_instance(instanceId)
-                return "POST LAUNCH ACTION FAILED WITH THIS INSTANCE"
-            else:
-                logger.info("POST LAUNCH ACTION: Interfaces have been configured successfully")
-
-            # CONFIGURING HOSTNAME
-            vm_name = "ciscoasa-" + instanceId[-5:]
-            hostname_response = asav.configure_hostname(vm_name)
-            logger.info(f"POST LAUNCH ACTION: ASAv instance Hostname configuration response {hostname_response}")
-
-            asav_configuration_file_local_path = 'disk0:configuration.txt'
-            asav_response = asav.run_copy_file_running_config(configuration_file_url, asav_configuration_file_local_path)
-            if asav_response != 'SUCCESS':
-                logger.error("POST LAUNCH ACTION: CONFIGURE ASAV ACTION GOT FAILED")
-                return None
-            else:
-                logger.info("POST LAUNCH ACTION: Configure ASAv action performed successfully for instance {}".format(instanceId))
-
-        except Exception as e:
-            logger.critical("POST LAUNCH ACTION: ERROR IN CONFIGURE ASAV ACTION, INSTACE WILL BE TERMINATED "+repr(e))
-            terimate_instance_response = postLaunchActionObject.terminate_instance(instanceId)
-            return "POST LAUNCH ACTION FAILED WITH THIS INSTANCE"
-
-        return response.Response(
-            ctx, response_data=json.dumps(
-                {"Response": "Post Launch Action Performed Successfully"}),
-        headers={"Content-Type": "application/json"}
-        )
+            logger.error(f"POST LAUNCH ACTION {identifier}: ADD TO EXTERNAL BACKEND SET ACTION GOT FAILED INSTACE WILL BE TERMINATED  {repr(e)}")
+            terimate_instance_response = postLaunchActionObject.terminate_instance()
+            return f"POST LAUNCH ACTION {identifier}: FAILED WITH THIS INSTANCE"
+        #__________________________________________________________________________________________________________________________
+        # CREATING PAYLOAD FOR CONFIGURE ASAv FUNCTION
+        configure_asav_payload = {}
+        configure_asav_payload["counter"] = 1
+        configure_asav_payload["instance_id"] = instanceId
+        configure_asav_payload["inside_interface_ip"] = insideInterfaceIpAddress
+        configure_asav_payload["outside_interface_ip"] = outsideInterfaceIpAddress
+        configure_asav_payload["inside_subnet_netmask"] = postLaunchActionObject.get_netmask_from_subnet_cidr(insideSubnetId)
+        configure_asav_payload["outside_subnet_netmask"] = postLaunchActionObject.get_netmask_from_subnet_cidr(outsideSubnetId)
+        configure_asav_payload["management_public_ip"] = postLaunchActionObject.get_management_public_ip()
+        logger.debug(f"POST LAUNCH ACTION {identifier}: configure_asav_payload {configure_asav_payload}")
+        #__________________________________________________________________________________________________________________________
+        # WILL WAIT SOME TIME SO THAT ASAv FINISH UP FIRST TIMEBOOT
+        post_launch_time = time.time()
+        time_elapsed = round(post_launch_time - begin_time,2)
+        logger.info(f"POST LAUNCH ACTION {identifier}: WAITING FOR ASAv TO FINISH FIRST TIME BOOT... TIME ELAPSED: {time_elapsed}s")
+        # Elapse some time in waiting so that ASAv can finish first time boot. Reserved 30s to call CONFIGURE ASAv.
+        time.sleep(100)
+        #__________________________________________________________________________________________________________________________
+        # INVOKE CONFIGURE ASAv
+        configure_asav_invoke_respose = postLaunchActionObject.publish_message(configure_asav_topic_id, configure_asav_payload)
+        logger.debug(f"POST LAUNCH ACTION {identifier}: configure_asav_invoke_respose {configure_asav_invoke_respose}")
+        if configure_asav_invoke_respose == True:
+            logger.info(f"POST LAUNCH ACTION {identifier}: Configure ASAv Function has been called successfully")
+            logger.info(f"POST LAUNCH ACTION {identifier} COMPLETED SUCCESSFULLY")
+            return f"POST LAUNCH ACTION {identifier} COMPLETED SUCCESSFULLY"
+        else:
+            logger.error(f"POST LAUNCH ACTION {identifier} UNABLE TO RE-CALL CONFIGURE ASAv FUNCTION, INSTACE WILL BE TERMINATED")
+            terminate_response = self.terminate_instance()
+            return f"POST LAUNCH ACTION {identifier} UNABLE TO RE-CALL CONFIGURE ASAv FUNCTION, POST LAUNCH ACTION FAILED"
 
     else:
-        logger.info("POST LAUNCH ACTION: Instance does not belongs to particular Instance Pool, Hence no action performed")
-        return "Instance does not belongs to particular Instance Pool"
+        logger.info(f"POST LAUNCH ACTION {identifier}: Instance does not belongs to autoscale Instance Pool, No action performed")
+        return "Instance does not belongs to autoscale Instance Pool"
