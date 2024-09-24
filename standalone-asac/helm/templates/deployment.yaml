@@ -1,0 +1,216 @@
+# Copyright (c) 2024 Cisco Systems Inc or its affiliates.
+#
+# All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: interface-config
+data:
+  interface-config: |-
+{{ .Files.Get "interface-config" | indent 4 }}
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: day0-config
+data:
+  day0-config: |-
+{{ .Files.Get "day0-config" | indent 4 }}
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+  - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  local:
+    path: {{ .Values.persistVolPath }}
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.kubernetes.io/control-plane
+          operator: NotIn
+          values:
+          - ""
+
+---
+
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: local-pvc
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: asac
+  labels:
+    app: ASAC
+    tier: asavc
+spec:
+  replicas: {{ .Values.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: ASAC
+  template:
+    metadata:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: macvlan-mgmt-bridge, macvlan-in-bridge, macvlan-out-bridge 
+      labels:
+        app: ASAC
+    spec:
+      volumes:
+      - name:  modulepath
+        hostPath:
+          path: /lib/modules
+      - name: local
+        hostPath:
+          path: /local/configvol
+      - name: dev
+        hostPath:
+          path: /dev
+      - name: hugepage
+        emptyDir:
+          medium: HugePages
+      - name: day0-config
+        configMap:
+          name: day0-config
+          optional: true
+          items:
+          - key: day0-config
+            path: day0-config
+      - name: interface-config
+        configMap:
+          name: interface-config
+          optional: true
+          items:
+          - key: interface-config
+            path: interface-config
+      - name: persistent-storage
+        persistentVolumeClaim:
+          claimName: local-pvc
+      containers:
+      - name: asac
+        image: {{ .Values.image.repository }}
+        stdin: true
+        tty: true
+        securityContext:
+          capabilities:
+                add: ["SYS_RESOURCE", "SYS_ADMIN", "NET_ADMIN"]
+          privileged: true
+        env:
+        - name: ASA_DOCKER
+          value: "1"
+        - name: RUN_ASA_WITH_GDB
+          value: "0"
+        - name: ASAC_MEMORY
+          value: "2048M"
+        - name: ASAC_CPUS
+          value: "1"
+        - name: DISABLE_DPDK
+          value: "0"
+        - name: ASA_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ASA_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: ASA_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: CORE_SIZE_LIMIT
+          value: "200MB"
+        - name: COREDUMP_PATH
+          value: "/mnt/coredump_repo/"
+        - name: ASAC_STANDALONE_MODE
+          value: "1"
+        - name: ASAC_ROOT_PRIVILEGE
+          value: "1"
+        volumeMounts:
+          - name: modulepath
+            mountPath: /lib/modules
+          - name: local
+            mountPath: /config
+          - name: dev
+            mountPath: /dev
+          - mountPath: /hugepages
+            name: hugepage
+          - name: day0-config
+            mountPath: /asac-day0-config
+          - name: interface-config
+            mountPath: /mnt/disk0/interface-config
+          - name: persistent-storage
+            mountPath: /mnt/disk0/.private
+        resources:
+          limits:
+            hugepages-2Mi: 64Mi
+            memory: 2Gi
+          requests:
+            hugepages-2Mi: 64Mi
+            memory: 2Gi
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              -  |
+                 sleep 30
+                 /sbin/ip route show table 1 | grep "dev eth0"
+                 if [ $? -eq 0 ]; then
+                   /sbin/ip route delete default via 169.254.1.1 dev eth0 table 1
+                   /sbin/ip route add default via 169.254.1.1 dev tap_nlp table 1
+                 fi
+          preStop:
+            exec:
+              command: ["/bin/sh","-c","rm -rf /mnt/disk0/.private/*"]
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - -x
+            - lina
+          initialDelaySeconds: 30
+          periodSeconds: 1
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /tmp/lina_ready
+          initialDelaySeconds: 60
+          periodSeconds: 1

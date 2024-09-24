@@ -1,0 +1,9 @@
+[interface0]
+  iface_id = eth0;
+  uio_driver = afpacket;
+[interface1]
+  iface_id = eth1;
+  uio_driver = afpacket;
+[interface2]
+  iface_id = eth2;
+  uio_driver = afpacket;
