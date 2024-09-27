@@ -4,6 +4,6 @@ A container is a software package that bundles up code and associated requiremen
 
 ## Resources:
 
-* [docker](docker) : Script reference to deploy ASA container on Docker environment.
-* [helm](helm) : Helm package reference to deploy ASA container on Kubernetes environment.
 * [Deployment Guide](asa-container.pdf) : Detailed guide for standalone ASA container deployment and configuration.
+* [Deploy the ASA Container in a Docker Environment](docker)
+* [Deploy the ASA Container in a Kubernetes Environment](helm)
