@@ -143,7 +143,7 @@ check_docker_networks
          ${IMAGE_VERSION}"
 
 
- echo "Starting ASA Build Container..."
+ echo "Starting ASA Container..."
  echo $DOCKER_CREATE_CMD
  echo
  echo "Mount Points:"
@@ -158,7 +158,7 @@ check_docker_networks
  
  $DOCKER_CREATE_CMD > /dev/null 2>&1
  if [[ $? -ne 0 ]]; then
-     echo "Error creatting Docker!"
+     echo "Error creating ASAc Docker!"
      exit $?
  fi
 
@@ -181,6 +181,6 @@ check_docker_networks
  echo $DOCKER_START_CMD
  $DOCKER_START_CMD > /dev/null 2>&1
  if [[ $? -ne 0 ]]; then
-     echo "Error creatting Docker!"
+     echo "Error creating ASAc Docker!"
      exit $?
  fi

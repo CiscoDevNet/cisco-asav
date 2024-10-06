@@ -101,9 +101,10 @@
         },
         "softwareVersion": {
             "type": "string",
-            "defaultValue": "92022.0.0",
+            "defaultValue": "92211.0.0",
             "allowedValues": [
-                "92022.0.0"
+                "92211.0.0",
+                "9203.0.0"
             ],
             "metadata": {
                 "description": "ASA Software version to use."
