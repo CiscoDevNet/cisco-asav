@@ -42,7 +42,7 @@
         "value": "asav-azure-byol"
       },
       "softwareVersion": {
-        "value": "92022.0.0"
+        "value": "92211.0.0"
       },
       "vmSize": {
         "value": "Standard_D3_v2"

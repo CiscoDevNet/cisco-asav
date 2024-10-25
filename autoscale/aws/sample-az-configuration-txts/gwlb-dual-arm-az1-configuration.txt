@@ -1,0 +1,19 @@
+!!! Access-List Access-Group Configuration
+access-list all extended permit ip any any
+access-list out standard permit any4
+access-group all global
+
+!!! Route Configuration
+! The first route enables cross-zone loadbalancing
+! The second route sets [next hop] = [outside subnet gateway] for Egress traffic
+! The subsequent routes set [next hop] = [inside subnet gateway] for East-West Application traffic. Add all application subnet IPs here
+! route data-interface-in 10.1.0.0 255.255.0.0 10.1.100.1 2
+! route data-interface-out 0.0.0.0 0.0.0.0 10.1.200.1 1
+! route ge 192.168.1.0 255.255.255.0 10.1.100.1 1
+! route ge 192.168.2.0 255.255.255.0 10.1.100.1 1
+
+!!! Inspect icmp for ping to work
+! policy-map global_policy
+! class inspection_default
+! inspect icmp
+!

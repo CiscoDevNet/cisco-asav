@@ -1,5 +1,5 @@
 """
-Copyright (c) 2020 Cisco Systems Inc or its affiliates.
+Copyright (c) 2024 Cisco Systems Inc or its affiliates.
 
 All Rights Reserved.
 
@@ -92,13 +92,17 @@ def get_user_input_lifecycle_asav():
         "AutoScaleGrpName": "",
         "max_number_of_interfaces": "2",
         "NO_OF_AZs": "",
+        "PROXY_TYPE": "",
         "SUBNET_ID_LIST_1": [],
         "SUBNET_ID_LIST_2": [],
-        "LB_ARN_OUTSIDE": "",
+        "LB_ARN": "",
         "LB_DEREGISTRATION_DELAY": "",
+        "SECURITY_GRP_1":"",
+        "SECURITY_GRP_2": "",
         "CONFIGURE_ASAV_TOPIC_ARN": "",
         "USER_NOTIFY_TOPIC_ARN": "",
-        "ASA_LICENSE_TYPE": ""
+        "ASA_LICENSE_TYPE": "",
+        "GENEVE_SUPPORT": ""
     }
 
     try:
@@ -108,7 +112,7 @@ def get_user_input_lifecycle_asav():
         user_input['ASA_LICENSE_TYPE'] = os.environ['ASA_LICENSE_TYPE']
         user_input['SUBNET_ID_LIST_1'] = os.environ['INSIDE_SUBNET'].split('::')
         user_input['SUBNET_ID_LIST_2'] = os.environ['OUTSIDE_SUBNET'].split('::')
-        user_input['LB_ARN_OUTSIDE'] = os.environ['LB_ARN_OUTSIDE']
+        user_input['LB_ARN'] = os.environ['LB_ARN']
         user_input['LB_DEREGISTRATION_DELAY'] = os.environ['LB_DEREGISTRATION_DELAY']
         user_input['CONFIGURE_ASAV_TOPIC_ARN'] = os.environ['CONFIGURE_ASAV_TOPIC_ARN']
         try:
@@ -116,6 +120,28 @@ def get_user_input_lifecycle_asav():
         except KeyError as e:
             logger.debug("Exception occurred: {}".format(repr(e)))
             user_input['USER_NOTIFY_TOPIC_ARN'] = None
+        
+        ## Variables for GWLB deployments:'PROXY_TYPE', 'SECURITY_GRP_1', 'SECURITY_GRP_2', 'GENEVE_SUPPORT'   
+        try:
+            user_input['PROXY_TYPE'] = os.environ['PROXY_TYPE']
+        except KeyError as e:
+            logger.debug("Exception occurred: {}".format(repr(e)))
+            user_input['PROXY_TYPE'] = None   
+        try:
+            user_input['SECURITY_GRP_1'] = os.environ['SECURITY_GRP_1']
+        except KeyError as e:
+            logger.debug("Exception occurred: {}".format(repr(e)))
+            user_input['SECURITY_GRP_1'] = None 
+        try:
+            user_input['SECURITY_GRP_2'] = os.environ['SECURITY_GRP_2']
+        except KeyError as e:
+            logger.debug("Exception occurred: {}".format(repr(e)))
+            user_input['SECURITY_GRP_2'] = None 
+        try:
+            user_input['GENEVE_SUPPORT'] = os.environ['GENEVE_SUPPORT']
+        except KeyError as e:
+            logger.debug("Exception occurred: {}".format(repr(e)))
+            user_input['GENEVE_SUPPORT'] = 'disable'                  
     except Exception as e:
         logger.error("Unable to OS environment variables")
         logger.error("Exception: {}".format(e))
@@ -139,8 +165,12 @@ def get_user_input_configure_asav():
         "AutoScaleUserPassword": "",
         "NO_OF_AZs": "",
         "AZ_LIST": "",
+        "LB_ARN": "",
         "USER_NOTIFY_TOPIC_ARN": "",
-        "ASA_LICENSE_TYPE": ""
+        "ASA_LICENSE_TYPE": "",
+        "SMART_LIC_TOKEN": "",
+        "GENEVE_SUPPORT": "",
+        "PROXY_TYPE": ""
     }
 
     try:
@@ -151,22 +181,39 @@ def get_user_input_configure_asav():
             user_input['USER_NOTIFY_TOPIC_ARN'] = os.environ['USER_NOTIFY_TOPIC_ARN']
         except KeyError as e:
             logger.debug("Exception occurred: {}".format(repr(e)))
-            user_input['USER_NOTIFY_TOPIC_ARN'] = None
+            user_input['USER_NOTIFY_TOPIC_ARN'] = None  
         try:
             user_input['kms_enc'] = os.environ['KMS_ENC']
         except KeyError as e:
             logger.debug("Exception occurred: {}".format(repr(e)))
             user_input['kms_enc'] = None
+        if user_input['kms_enc'] is None:
+            user_input['AutoScaleUserPassword'] = os.environ['AUTOSCALEUSER_PASSWORD']
+        else:
+            user_input['AutoScaleUserPassword'] = get_decrypted_key(os.environ['AUTOSCALEUSER_PASSWORD'])    
         user_input['AutoScaleGrpName'] = os.environ['ASG_NAME']
         user_input['ConfigFileUrl'] = os.environ['CONFIG_FILE_URL']
         user_input['NO_OF_AZs'] = os.environ['NO_OF_AZs']
         user_input['AZ_LIST'] = os.environ['AZ_LIST'].split('::')
         user_input['ASA_LICENSE_TYPE'] = os.environ['ASA_LICENSE_TYPE']
-        if user_input['kms_enc'] is None:
-            user_input['AutoScaleUserPassword'] = os.environ['AUTOSCALEUSER_PASSWORD']
-        else:
-            user_input['AutoScaleUserPassword'] = get_decrypted_key(os.environ['AUTOSCALEUSER_PASSWORD'])
-        user_input['LB_ARN_OUTSIDE'] = os.environ['LB_ARN_OUTSIDE']
+        user_input['LB_ARN'] = os.environ['LB_ARN']
+        ## Variables for GWLB deployments:'GENEVE_SUPPORT', 'PROXY_TYPE','SMART_LIC_TOKEN'   
+        try:
+            user_input['GENEVE_SUPPORT'] = os.environ['GENEVE_SUPPORT']
+        except KeyError as e:
+            logger.debug("Exception occurred: {}".format(repr(e)))
+            user_input['GENEVE_SUPPORT'] = 'disable'   
+        try:
+            user_input['PROXY_TYPE'] = os.environ['PROXY_TYPE']
+        except KeyError as e:
+            logger.debug("Exception occurred: {}".format(repr(e)))
+            user_input['PROXY_TYPE'] = None       
+        try:
+            user_input['SMART_LIC_TOKEN'] = os.environ['SMART_LIC_TOKEN']
+        except KeyError as e:
+            logger.debug("Exception occurred: {}".format(repr(e)))
+            user_input['SMART_LIC_TOKEN'] = None  
+        
     except ValueError as e:
         logger.error("Error occurred: {}".format(repr(e)))
         logger.info("Check if Lambda function variables are valid!")
@@ -266,6 +313,9 @@ def make_config_url(instance_az, az_list, url_prefix):
     except Exception as e:
         logger.critical("Unhandled error occurred: {}".format(repr(e)))
     else:
+        # topology_prefix = (const.NLB_CONFIG_PREFIX if topology_type == 'nlb' else
+        #                    const.GWLB_SINGLE_ARM_CONFIG_PREFIX if topology_type == 'gwlb-single-arm' else
+        #                    const.GWLB_DUAL_ARM_CONFIG_PREFIX if topology_type == 'gwlb-dual-arm' else None)
         if index == 0:
             return url_prefix + const.AZ1_FILE_NAME
         elif index == 1:
@@ -274,8 +324,5 @@ def make_config_url(instance_az, az_list, url_prefix):
             return url_prefix + const.AZ3_FILE_NAME
     return None
 
-# Not used
-# def make_license_config_url(url_prefix):
-#     return url_prefix + const.LICENSE_FILE_NAME
 
 logger = setup_logging(os.environ['DEBUG_LOGS'])

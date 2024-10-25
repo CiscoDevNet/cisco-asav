@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Cisco Systems Inc or its affiliates.
+# Copyright (c) 2024 Cisco Systems Inc or its affiliates.
 #
 # All Rights Reserved.
 #
@@ -203,6 +203,13 @@ Parameters:
     MinLength: 8
     Type: String
     ConstraintDescription: password must be of minimum 8 characters
+  InstanceMetadataServiceVersion:
+    Description: Select IMDS version to be used by the instances
+    Type: String
+    Default: "V1 and V2 (token optional)"
+    AllowedValues:
+      - "V1 and V2 (token optional)"
+      - "V2 only (token required) [IMDSv2 ONLY APPLICABLE FOR VERSION 9.22 AND ABOVE]"
   CpuThresholds:
     Description: >-
       [Optional] Specifying non-zero lower and upper threshold will create respective Scale policies.
@@ -311,6 +318,10 @@ Conditions:
     - !Equals
       - 0
       - !Select ['0', !Ref CpuThresholds ]
+  EnableIMDSv2:
+    Fn::Equals:
+      - !Ref InstanceMetadataServiceVersion
+      - "V2 only (token required) [IMDSv2 ONLY APPLICABLE FOR VERSION 9.22 AND ABOVE]"
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -351,6 +362,7 @@ Metadata:
           - ConfigFileURL
           - KmsArn
           - AutoscaleUserPassword
+          - InstanceMetadataServiceVersion
       - Label:
           default: Scaling Thresholds Configuration
         Parameters:
@@ -408,6 +420,8 @@ Metadata:
         default: ASAv Password
       CpuThresholds:
         default: Lower,Upper CPU Thresholds
+      InstanceMetadataServiceVersion:
+        default: Instance Metadata Service Version
 Resources:
 # Lambda Layer ---------------------------------------------------------
   LambdaLayer:
@@ -609,7 +623,7 @@ Resources:
           CONFIG_FILE_URL: !Ref ConfigFileURL
           NO_OF_AZs: !Ref NoOfAZs
           ASA_LICENSE_TYPE: !Ref ASAvLicenseType
-          LB_ARN_OUTSIDE: !Ref lbOutside
+          LB_ARN: !Ref lbOutside
           AZ_LIST: !If
             - support1zone
             - !Select ['0', !Ref ListOfAzs ]
@@ -744,7 +758,7 @@ Resources:
               - support2zone
               - !Join ['::', [ !Select ['0', !Ref ASAvOutsideSubnetId ], !Select ['1', !Ref ASAvOutsideSubnetId ] ] ]
               - !Join ['::', [ !Select ['0', !Ref ASAvOutsideSubnetId ], !Select ['1', !Ref ASAvOutsideSubnetId ], !Select ['2', !Ref ASAvOutsideSubnetId ] ] ]
-          LB_ARN_OUTSIDE: !Ref lbOutside
+          LB_ARN: !Ref lbOutside
           LB_DEREGISTRATION_DELAY: 180
           CONFIGURE_ASAV_TOPIC_ARN: !Ref ConfigureASAvTopic
           USER_NOTIFY_TOPIC_ARN: !If
@@ -908,6 +922,16 @@ Resources:
     Properties:
       LaunchTemplateName: !Join ['-', [!Ref AutoscaleGrpNamePrefix, !Ref PodNumber, 'launch-template' ] ]
       LaunchTemplateData:
+        MetadataOptions:
+          Fn::If:
+            - EnableIMDSv2
+            -
+              HttpEndpoint: "enabled"  # Use Amazon DNS for metadata service
+              HttpProtocolIpv6: "disabled"  # Disable IPv6 for metadata service
+              HttpPutResponseHopLimit: 1  # Set hop limit to 1
+              HttpTokens: "required"  # Require IMDSv2 for metadata requests
+              # InstanceMetadataTags: "enabled"  # Include custom instance metadata tags
+            - !Ref "AWS::NoValue"
         EbsOptimized: false
         ImageId: !Ref ASAvAmiID
         InstanceType: !Ref ASAvInstanceType

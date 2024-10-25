@@ -34,7 +34,6 @@ logger = utl.setup_logging(os.environ['DEBUG_LOGS'])
 # Get User input
 user_input = utl.get_user_input_configure_asav()
 
-
 def lambda_handler(event, context):
     """
     Purpose:    Configure ASAv Lambda, to configure ASAv
@@ -458,7 +457,12 @@ def execute_cluster_configure_first(asa):
                 logger.error("Unable to write ASAv configuration on the device..!")
                 asa.create_instance_tags('ASAvConfigurationStatus', 'FAIL')
                 return 'FAIL'
-    if asa.configure_cluster(octet) == "SUCCESS":
+                
+    az = asa.get_instance_availability_zone(asa.instance_id)
+    az_in_char = az[len(az)-1]
+    az_in_num = str(ord(az_in_char.lower()) - ord('a') + 1)
+    number_of_azs = user_input['NO_OF_AZs']
+    if asa.configure_cluster(octet, az_in_char, az_in_num, number_of_azs) == "SUCCESS":
         logger.info("Cluster configuration successfully applied..!")
         asa.create_instance_tags('ASAvConfigurationStatus', 'DONE')
         return 'SUCCESS'
@@ -563,7 +567,7 @@ def verify_cluster_status(aws_grp, asa):
             control = status.count('CONTROL_NODE')
             members = status.count('DATA_NODE')
             logger.info(status)
-            if (control != 1 or members != (mins - 1)):
+            if (control != 1 and members != (mins - 1)) or count == 3:
                 logger.info('Cluster is not properly formed..!!')
                 asa.create_instance_tags('ClusterStatus', 'NOT FORMED')
                 return 'FAIL'

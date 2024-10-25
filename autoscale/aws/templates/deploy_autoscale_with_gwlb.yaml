@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Cisco Systems Inc or its affiliates.
+# Copyright (c) 2024 Cisco Systems Inc or its affiliates.
 #
 # All Rights Reserved.
 #
@@ -60,7 +60,7 @@ Parameters:
       - 2
       - 3
     Default: 2
-  ListOfAzs:
+  ListOfAZs:
     Type: CommaDelimitedList
     Description: >-
       Enter the list of Availability Zones (Based on Number of Availability Zones above).
@@ -81,7 +81,7 @@ Parameters:
     Type: String
     AllowedPattern: '^()([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$'
     ConstraintDescription: must be a valid TCP port
-    Default: 22
+    Default: 8080
   AssignPublicIP:
     Description: >-
       Please select true if ASAv needs to have public IP address. In case ASAv needs to have public IP then management
@@ -95,8 +95,16 @@ Parameters:
     Default: true
   ASAvMgmtSG:
     Description: >-
-      Please select security group ID for ASAv instances
+      Please select security group ID for ASAv instances' Mgmt interface
     Type: List<AWS::EC2::SecurityGroup::Id>
+  ASAvInsideSG:
+    Description: >-
+      Please select security group IDs for ASAv instances' Inside data interface 
+    Type: AWS::EC2::SecurityGroup::Id
+  ASAvOutsideSG:
+    Description: >-
+      Please select security group ID for ASAv instances' Outside data interface : Used for dual-arm deployments
+    Type: AWS::EC2::SecurityGroup::Id   
   ASAvMgmtSubnetId:
     Description: >-
       Select only one subnet per AZ. If multiple subnet from same AZ are chosen, Creation of LB will fail.
@@ -121,15 +129,23 @@ Parameters:
       Also user has to make sure supported instance-type is choosen for the ASAv version being used.
     Type: String
     AllowedValues:
-      - m4.xlarge
-      - m4.2xlarge
-      - c3.xlarge
-      - c3.2xlarge
-      - c4.xlarge
-      - c4.2xlarge
+      - m5n.xlarge
+      - m5n.2xlarge
+      - m5n.4xlarge
+      - m5zn.xlarge
+      - m5zn.2xlarge
       - c5.xlarge
       - c5.2xlarge
       - c5.4xlarge
+      - c5d.xlarge
+      - c5d.2xlarge
+      - c5d.4xlarge
+      - c5a.xlarge
+      - c5a.2xlarge
+      - c5a.4xlarge
+      - c5ad.xlarge
+      - c5ad.2xlarge
+      - c5ad.4xlarge
       - c5n.xlarge
       - c5n.2xlarge
       - c5n.4xlarge
@@ -143,6 +159,10 @@ Parameters:
       - BYOL
       - PAYG
     Default: BYOL
+  SmartLicToken:
+    Description: >-
+      [Optional] Provide Cisco Smart Software License token for Registration of ASAv devices.
+    Type: String
   ASAvAmiID:
     Description: >-
       Please choose correct AMI ID as per the region, desired version and license type(BYOL/PAYG).
@@ -172,6 +192,13 @@ Parameters:
     MinLength: 8
     Type: String
     ConstraintDescription: password must be of minimum 8 characters
+  InstanceMetadataServiceVersion:
+    Description: Select IMDS version to be used by the instances
+    Type: String
+    Default: "V1 and V2 (token optional)"
+    AllowedValues:
+      - "V1 and V2 (token optional)"
+      - "V2 only (token required) [IMDSv2 ONLY APPLICABLE FOR VERSION 9.22 AND ABOVE]"
   CpuThresholds:
     Description: >-
       [Optional] Specifying non-zero lower and upper threshold will create respective Scale policies.
@@ -241,6 +268,15 @@ Parameters:
       - 80,0
       - 90,95
       - 90,0
+  DeploymentType:
+    Description: >-
+      Specify whether "single-arm" or "dual-arm" deployment required
+    Type: String
+    Default: "single-arm"
+    AllowedValues:
+      - "single-arm"
+      - "dual-arm"
+
 Conditions:
   support1zone: !Equals
     - !Ref NoOfAZs
@@ -251,6 +287,13 @@ Conditions:
   support3zone: !Equals
     - !Ref NoOfAZs
     - 3
+  DeployDualArm: !Equals
+    - !Ref DeploymentType
+    - "dual-arm"  
+  Lic_token: !Not
+    - !Equals
+      - ''
+      - !Ref SmartLicToken   
   UserNotifyEmail: !Not
     - !Equals
       - ''
@@ -267,6 +310,10 @@ Conditions:
     - !Equals
       - 0
       - !Select ['0', !Ref CpuThresholds ]
+  EnableIMDSv2:
+    Fn::Equals:
+      - !Ref InstanceMetadataServiceVersion
+      - "V2 only (token required) [IMDSv2 ONLY APPLICABLE FOR VERSION 9.22 AND ABOVE]"
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -284,7 +331,7 @@ Metadata:
           - LambdaSubnets
           - LambdaSG
           - NoOfAZs
-          - ListOfAzs
+          - ListOfAZs
           - ASAvMgmtSubnetId
           - ASAvInsideSubnetId
           - ASAvOutsideSubnetId
@@ -297,12 +344,16 @@ Metadata:
         Parameters:
           - ASAvInstanceType
           - ASAvLicenseType
+          - SmartLicToken          
           - AssignPublicIP
           - ASAvMgmtSG
+          - ASAvInsideSG
+          - ASAvOutsideSG
           - ASAvAmiID
           - ConfigFileURL
           - KmsArn
           - AutoscaleUserPassword
+          - InstanceMetadataServiceVersion
       - Label:
           default: Scaling Thresholds Configuration
         Parameters:
@@ -322,7 +373,7 @@ Metadata:
         default: Security Groups for Lambda Functions
       NoOfAZs:
         default: Number of Availibility Zones
-      ListOfAzs:
+      ListOfAZs:
         default: Availability Zones
       S3BktName:
         default: S3 Bucket Name
@@ -332,12 +383,18 @@ Metadata:
         default: ASAv Instance type
       ASAvLicenseType:
         default: ASAv Instance License type
+      SmartLicToken:
+        default: ASAv Smart Software License Token  
       ASAvAmiID:
         default: ASAv AMI-ID
       AssignPublicIP:
         default: Assign Public IP for ASAv from AWS IP Pool
       ASAvMgmtSG:
-        default: Security Groups for ASAv Instance
+        default: Security Group for ASAv Instances' Mgmt Interface
+      ASAvInsideSG:
+        default: Security Group for ASAv Instances' Inside Interface  
+      ASAvOutsideSG:
+        default: Security Group for ASAv Instances' Outside Interface   
       ASAvMgmtSubnetId:
         default: Subnets List for ASAv Management Interface
       ASAvInsideSubnetId:
@@ -352,13 +409,15 @@ Metadata:
         default: ASAv Password
       CpuThresholds:
         default: Lower,Upper CPU Thresholds
+      InstanceMetadataServiceVersion:
+        default: Instance Metadata Service Version
 Resources:
 # Lambda Layer ---------------------------------------------------------
   LambdaLayer:
     Type: AWS::Lambda::LayerVersion
     Properties:
       CompatibleRuntimes:
-        - python3.9
+        - python3.11
       Content:
         S3Bucket: !Ref S3BktName
         S3Key: autoscale_layer.zip
@@ -427,7 +486,7 @@ Resources:
 # ------------------------------------------------------------------------
 # Load Balancer & Target groups
 # ------------------------------------------------------------------------
-  lbOutside:
+  lbInside:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: !Join ['-', [!Ref AutoscaleGrpNamePrefix, !Ref PodNumber, 'gwlb' ] ]
@@ -439,19 +498,19 @@ Resources:
         - support1zone
         - !Split
           - ':'
-          - !Select ['0', !Ref ASAvOutsideSubnetId ]
+          - !Select ['0', !Ref ASAvInsideSubnetId ]
         - !If
           - support2zone
           - !Split
             - ':'
-            - !Join [':', [ !Select ['0', !Ref ASAvOutsideSubnetId ], !Select ['1', !Ref ASAvOutsideSubnetId ] ] ]
+            - !Join [':', [ !Select ['0', !Ref ASAvInsideSubnetId ], !Select ['1', !Ref ASAvInsideSubnetId ] ] ]
           - !Split
             - ':'
-            - !Join [':',[ !Select ['0', !Ref ASAvOutsideSubnetId ], !Select ['1', !Ref ASAvOutsideSubnetId ], !Select ['2', !Ref ASAvOutsideSubnetId ] ] ]
+            - !Join [':',[ !Select ['0', !Ref ASAvInsideSubnetId ], !Select ['1', !Ref ASAvInsideSubnetId ], !Select ['2', !Ref ASAvInsideSubnetId ] ] ]
   UnSectg0:        
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     DependsOn:
-      - lbOutside
+      - lbInside
     Properties:
       Name: !Join ['-', [!Ref AutoscaleGrpNamePrefix, !Ref PodNumber, 'lb-UnSec-tg0' ] ]
       Port: 6081
@@ -468,7 +527,7 @@ Resources:
       DefaultActions:
       - Type: forward
         TargetGroupArn: !Ref UnSectg0
-      LoadBalancerArn: !Ref lbOutside
+      LoadBalancerArn: !Ref lbInside
  
 # ------------------------------------------------------------------------
 # Configure ASAv Lambda
@@ -479,7 +538,7 @@ Resources:
     Properties:
       FunctionName: !Join ['-', [!Ref AutoscaleGrpNamePrefix, !Ref PodNumber, 'configure-ASAv-lambda'] ]
       Handler: configure_asav.lambda_handler
-      Runtime: python3.9
+      Runtime: python3.11
       ReservedConcurrentExecutions: 10
       CodeUri:
         Bucket: !Ref S3BktName
@@ -494,28 +553,34 @@ Resources:
       Environment:
         Variables:
           DEBUG_LOGS: 'disable'
+          GENEVE_SUPPORT: 'enable'
           KMS_ENC: !If
             - ShouldEncrypt
             - !Ref KmsArn
             - !Ref 'AWS::NoValue'
           ASG_NAME: !Join ['-', [!Ref AutoscaleGrpNamePrefix, !Ref PodNumber ] ]
           CONFIG_FILE_URL: !Ref ConfigFileURL
+          SMART_LIC_TOKEN: !If
+           - Lic_token
+           - !Ref SmartLicToken
+           - !Ref 'AWS::NoValue'
           NO_OF_AZs: !Ref NoOfAZs
           ASA_LICENSE_TYPE: !Ref ASAvLicenseType
-          LB_ARN_OUTSIDE: !Ref lbOutside
+          LB_ARN: !Ref lbInside
           AZ_LIST: !If
             - support1zone
-            - !Select ['0', !Ref ListOfAzs ]
+            - !Select ['0', !Ref ListOfAZs ]
             - !If
               - support2zone
-              - !Join ['::', [ !Select ['0', !Ref ListOfAzs ], !Select ['1', !Ref ListOfAzs ] ] ]
-              - !Join ['::', [ !Select ['0', !Ref ListOfAzs ], !Select ['1', !Ref ListOfAzs ], !Select ['2', !Ref ListOfAzs ] ] ]
+              - !Join ['::', [ !Select ['0', !Ref ListOfAZs ], !Select ['1', !Ref ListOfAZs ] ] ]
+              - !Join ['::', [ !Select ['0', !Ref ListOfAZs ], !Select ['1', !Ref ListOfAZs ], !Select ['2', !Ref ListOfAZs ] ] ]
           AUTOSCALEUSER_PASSWORD: !Ref AutoscaleUserPassword
           CONFIGURE_ASA_TOPIC: !Ref ConfigureASAvTopic
           USER_NOTIFY_TOPIC_ARN: !If
             - UserNotifyEmail
             - !Ref UserNotifyTopic
             - !Ref 'AWS::NoValue'
+          PROXY_TYPE: !Ref DeploymentType  
       Role: !GetAtt LambdaRole.Arn
       Layers:
         - !Ref LambdaLayer
@@ -562,7 +627,7 @@ Resources:
       TopicName: !Join ['-', [!Ref AutoscaleGrpNamePrefix, !Ref PodNumber , 'configure-ASAv-topic'] ]
   UnhealthyAlarm:
     DependsOn:
-      - lbOutside
+      - lbInside
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Join ['', [!Ref AutoscaleGrpNamePrefix, '-',!Ref PodNumber, ' Unhealthy-Targets' ] ]
@@ -576,7 +641,7 @@ Resources:
         - Name: TargetGroup
           Value: !Ref UnSectg0
         - Name: LoadBalancer
-          Value: !GetAtt lbOutside.LoadBalancerFullName
+          Value: !GetAtt lbInside.LoadBalancerFullName
       EvaluationPeriods: 60
       MetricName: UnHealthyHostCount
       DatapointsToAlarm: 60
@@ -597,14 +662,14 @@ Resources:
     Properties:
       FunctionName: !Join ['-', [!Ref AutoscaleGrpNamePrefix, !Ref PodNumber, 'lifecycle-lambda'] ]
       Handler: lifecycle_asav.lambda_handler
-      Runtime: python3.9
+      Runtime: python3.11
       CodeUri:
         Bucket: !Ref S3BktName
         Key: lifecycle_asav.zip
       Description: 'Life Cycle Lambda is responsible to attach interfaces to new ASAv'
       MemorySize: 128
       ReservedConcurrentExecutions: 10
-      Timeout: 300
+      Timeout: 400
       Role: !GetAtt LambdaRole.Arn
       VpcConfig:
         SecurityGroupIds: !Ref LambdaSG
@@ -614,9 +679,11 @@ Resources:
       Environment:
         Variables:
           DEBUG_LOGS: 'disable'
+          GENEVE_SUPPORT: 'enable'
           ASG_NAME: !Join [ '-', [!Ref AutoscaleGrpNamePrefix, !Ref PodNumber]]
           NO_OF_AZs: !Ref NoOfAZs
           ASA_LICENSE_TYPE: !Ref ASAvLicenseType
+          PROXY_TYPE: !Ref DeploymentType
           INSIDE_SUBNET: !If
             - support1zone
             - !Select ['0', !Ref ASAvInsideSubnetId ]
@@ -631,8 +698,10 @@ Resources:
               - support2zone
               - !Join ['::', [ !Select ['0', !Ref ASAvOutsideSubnetId ], !Select ['1', !Ref ASAvOutsideSubnetId ] ] ]
               - !Join ['::', [ !Select ['0', !Ref ASAvOutsideSubnetId ], !Select ['1', !Ref ASAvOutsideSubnetId ], !Select ['2', !Ref ASAvOutsideSubnetId ] ] ]
-          LB_ARN_OUTSIDE: !Ref lbOutside
+          LB_ARN: !Ref lbInside
           LB_DEREGISTRATION_DELAY: 180
+          SECURITY_GRP_1: !Ref ASAvInsideSG
+          SECURITY_GRP_2: !Ref ASAvOutsideSG
           CONFIGURE_ASAV_TOPIC_ARN: !Ref ConfigureASAvTopic
           USER_NOTIFY_TOPIC_ARN: !If
             - UserNotifyEmail
@@ -775,7 +844,7 @@ Resources:
             - GroupTerminatingInstances
             - GroupTotalInstances
             - GroupStandbyInstances
-      HealthCheckGracePeriod: 720
+      HealthCheckGracePeriod: 1200
       Cooldown: 720
       TerminationPolicies:
         - OldestLaunchConfiguration
@@ -795,6 +864,16 @@ Resources:
     Properties:
       LaunchTemplateName: !Join ['-', [!Ref AutoscaleGrpNamePrefix, !Ref PodNumber, 'launch-template' ] ]
       LaunchTemplateData:
+        MetadataOptions:
+          Fn::If:
+            - EnableIMDSv2
+            -
+              HttpEndpoint: "enabled"  # Use Amazon DNS for metadata service
+              HttpProtocolIpv6: "disabled"  # Disable IPv6 for metadata service
+              HttpPutResponseHopLimit: 1  # Set hop limit to 1
+              HttpTokens: "required"  # Require IMDSv2 for metadata requests
+              # InstanceMetadataTags: "enabled"  # Include custom instance metadata tags
+            - !Ref "AWS::NoValue"
         EbsOptimized: false
         ImageId: !Ref ASAvAmiID
         InstanceType: !Ref ASAvInstanceType
@@ -807,57 +886,136 @@ Resources:
           - DeviceName: /dev/xvda
             Ebs:
               DeleteOnTermination: true
-        UserData:
-          Fn::Base64: !Sub |
-            ! ASA Version
-            interface management0/0
-            no management-only
-            nameif management
-            security-level 100
-            ip address dhcp setroute
-            no shut
-            !
-            interface TenGigabitEthernet0/0
-            shut
-            !
-            interface TenGigabitEthernet0/1
-            nameif data-interface
-            security-level 0
-            ip address dhcp
-            no shut
-            !
-            nve 1
-            encapsulation geneve
-            source-interface data-interface
-            !
-            interface vni1
-            proxy single-arm
-            nameif ge
-            security-level 0
-            vtep-nve 1
-            !
-            mtu data-interface 1806
-            !
-            same-security-traffic permit inter-interface
-            same-security-traffic permit intra-interface
-            crypto key generate rsa modulus 2048
-            ssh 0 0 management
-            ssh 0 0 data-interface
-            ssh version 2
-            ssh timeout 30
-            ssh key-exchangegroup dh-group14-sha1
-            username admin password AsAv_AuT0Scale privilege 15
-            username admin attributes
-            service-type admin
-            username autoscaleuser password AsAv_AuT0Scale privilege 15
-            aaa authentication ssh console LOCAL
-            enable password AsAv_AuT0Scale level 15
-            !
-            ! Modifiable Segment of UserData
-            ! Modify name-server as per your VPC
-            dns domain-lookup management
-            DNS server-group DefaultDNS
-            name-server 10.0.0.2
-            !
-            ! License configuration
-            ! Provide smart license registration CLIs
+        UserData: 
+          Fn::Base64: !If
+                        - DeployDualArm
+                        - !Sub |
+                            ! ASA Version
+                            interface management0/0
+                            management-only
+                            nameif management
+                            security-level 100
+                            ip address dhcp setroute
+                            no shut
+                            !
+                            interface TenGigabitEthernet0/0
+                            nameif data-interface-in
+                            security-level 100
+                            ip address dhcp
+                            no shut 
+                            !
+                            interface TenGigabitEthernet0/1
+                            nameif data-interface-out
+                            security-level 0
+                            ip address dhcp
+                            no shut 
+                            !    
+                            nve 1
+                            encapsulation geneve
+                            source-interface data-interface-in
+                            !
+                            interface vni1
+                            proxy ${DeploymentType}
+                            nameif ge
+                            security-level 0
+                            vtep-nve 1
+                            !
+                            mtu data-interface-in 1826
+                            ! 
+                            jumbo-frame reservation
+                            !             
+                            same-security-traffic permit inter-interface
+                            same-security-traffic permit intra-interface
+                            crypto key generate rsa modulus 2048
+                            ssh 0 0 management
+                            ssh version 2
+                            ssh timeout 30
+                            ssh key-exchangegroup dh-group14-sha1
+                            username admin password AsAv_AuT0Scale privilege 15    
+                            username admin attributes
+                            service-type admin
+                            username autoscaleuser password AsAv_AuT0Scale privilege 15
+                            aaa authentication ssh console LOCAL
+                            aaa authentication listener http data-interface-in port ${TgHealthPort}
+                            enable password AsAv_AuT0Scale level 15
+                            !
+                            no monitor-interface service-module
+                            !
+                            dns domain-lookup management
+                            DNS server-group DefaultDNS
+                            name-server 8.8.8.8 management
+                            !
+                            nat (ge,data-interface-out) source dynamic any interface
+                            ! License configuration
+                            call-home
+                            profile License
+                            destination transport-method http
+                            destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
+                            license smart
+                            feature tier standard
+                            throughput level 100M
+                            license smart register idtoken <id-token>
+                            !
+                        - !Sub | 
+                            ! ASA Version
+                            interface management0/0
+                            no management-only
+                            nameif management
+                            security-level 100
+                            ip address dhcp setroute
+                            no shut
+                            !
+                            interface TenGigabitEthernet0/0
+                            nameif data-interface
+                            security-level 100
+                            ip address dhcp
+                            no shut  
+                            !
+                            interface TenGigabitEthernet0/1
+                            shut 
+                            !    
+                            nve 1
+                            encapsulation geneve
+                            source-interface data-interface
+                            !
+                            interface vni1
+                            proxy ${DeploymentType}
+                            nameif ge
+                            security-level 0
+                            vtep-nve 1
+                            !
+                            mtu data-interface 1826
+                            !  
+                            jumbo-frame reservation
+                            !             
+                            same-security-traffic permit inter-interface
+                            same-security-traffic permit intra-interface
+                            crypto key generate rsa modulus 2048
+                            ssh 0 0 management
+                            ssh version 2
+                            ssh timeout 30
+                            ssh key-exchangegroup dh-group14-sha1
+                            username admin password AsAv_AuT0Scale privilege 15    
+                            username admin attributes
+                            service-type admin
+                            username autoscaleuser password AsAv_AuT0Scale privilege 15
+                            aaa authentication ssh console LOCAL
+                            aaa authentication listener http data-interface port ${TgHealthPort}
+                            enable password AsAv_AuT0Scale level 15
+                            !
+                            no monitor-interface service-module
+                            !
+                            dns domain-lookup management
+                            DNS server-group DefaultDNS
+                            name-server 8.8.8.8 management
+                            !
+                            ! License configuration
+                            call-home
+                            profile License
+                            destination transport-method http
+                            destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
+                            license smart
+                            feature tier standard
+                            throughput level 100M
+                            license smart register idtoken <id-token>
+                            !
