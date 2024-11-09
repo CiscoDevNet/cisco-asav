@@ -946,16 +946,17 @@ Resources:
                             name-server 8.8.8.8 management
                             !
                             nat (ge,data-interface-out) source dynamic any interface
-                            ! License configuration
-                            call-home
-                            profile License
-                            destination transport-method http
-                            destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
-                            license smart
-                            feature tier standard
-                            throughput level 100M
-                            license smart register idtoken <id-token>
                             !
+                            ! [FOR BYOL LICENSING ONLY] License configuration
+                            ! Uncomment the following smart license registration CLIs
+                            ! call-home
+                            ! profile License
+                            ! destination transport-method http
+                            ! destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
+                            ! license smart
+                            ! feature tier standard
+                            ! throughput level <entitlement>
+                            ! license smart register idtoken <id-token>
                         - !Sub | 
                             ! ASA Version
                             interface management0/0
@@ -1009,13 +1010,13 @@ Resources:
                             DNS server-group DefaultDNS
                             name-server 8.8.8.8 management
                             !
-                            ! License configuration
-                            call-home
-                            profile License
-                            destination transport-method http
-                            destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
-                            license smart
-                            feature tier standard
-                            throughput level 100M
-                            license smart register idtoken <id-token>
-                            !
+                            ! [FOR BYOL LICENSING ONLY] License configuration
+                            ! Uncomment the following smart license registration CLIs
+                            ! call-home
+                            ! profile License
+                            ! destination transport-method http
+                            ! destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
+                            ! license smart
+                            ! feature tier standard
+                            ! throughput level <entitlement>
+                            ! license smart register idtoken <id-token>

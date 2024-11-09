@@ -986,5 +986,13 @@ Resources:
             DNS server-group DefaultDNS
             name-server 10.0.0.2
             !
-            ! License configuration
-            ! Provide smart license registration CLIs
+            ! [FOR BYOL LICENSING ONLY] License configuration
+            ! Uncomment the following smart license registration CLIs
+            ! call-home
+            ! profile License
+            ! destination transport-method http
+            ! destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
+            ! license smart
+            ! feature tier standard
+            ! throughput level <entitlement>
+            ! license smart register idtoken <id-token>
