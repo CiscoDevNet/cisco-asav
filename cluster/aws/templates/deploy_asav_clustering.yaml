@@ -1178,10 +1178,6 @@ Resources:
                     !
                     enable password AsAv_ClU3TeR44 level 15
                     !
-                    telnet 0 0 management
-                    telnet timeout 30
-                    aaa authentication telnet console LOCAL
-                    !
                     dns domain-lookup management
                     DNS server-group DefaultDNS
                         name-server 8.8.8.8 management
