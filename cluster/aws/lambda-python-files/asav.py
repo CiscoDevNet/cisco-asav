@@ -29,7 +29,7 @@ import socket
 import constant as const
 import utility as utl
 import re
-from aws import CiscoEc2Instance
+from aws import CiscoEc2Instance, EC2Instance
 
 # Setup Logging
 logger = utl.setup_logging(os.environ['DEBUG_LOGS'])
@@ -101,7 +101,47 @@ class ASAvInstance(CiscoEc2Instance):
         else:
             logger.warn("Unable to run command output: %s error: %s" % (output, error))
             return self.FAIL, output, error
-
+    
+    # Run an independant command on ASAv in config terminal mode
+    def run_asav_command_config(self, cmd):
+        """
+        Purpose:    To run a single command on ASAv in '(config)#'
+        Parameters: command
+        Returns:    'FAILURE', 'COMMAND_RAN'
+        Raises:
+        """
+        cnt_asa = self.connect_asa()
+        command_set = {
+            "cmd": [
+                {
+                    "command": "enable",
+                    "expect": "Password:"
+                },
+                {
+                    "command": self.password,
+                    "expect": "#"
+                },
+                {
+                    "command": "conf t",
+                    "expect": "(config)#"
+                },
+                {
+                    "command": cmd,
+                    "expect": "(config)#"
+                }
+            ]
+        }
+  
+        try:
+            cnt_asa.handle_interactive_session(command_set, self.username, self.password)
+        except ValueError as e:
+            cnt_asa.close()
+            logger.error("Error occurred: {}".format(repr(e)))
+            return self.FAIL
+        else:
+            cnt_asa.close()
+            return self.SUCCESS
+    
     def enable_password(self):
         """
         Purpose:    To enable password - ASAv
@@ -484,54 +524,6 @@ class ASAvInstance(CiscoEc2Instance):
                     return "SUCCESS"
         return "TIMEOUT"
 
-    #  Any breakage in Communication, can cause ASAv to be terminated without de-register license.
-    def deregister_smart_license(self):
-        """
-        Purpose:    To deregister smart license
-        Parameters: ParamikoSSH class object, Default password, New Password
-        Returns:    SUCCESS, None
-        Raises:
-        """
-        cmd1 = 'show license status'
-        cmd2 = 'license smart deregister'
-        cnt_asa = self.connect_asa()
-        write_memory_config = 'copy /noconfirm running-config startup-config'
-        expected_outcome_write_memory_config = '#'
-        command_set = {
-            "cmd": [
-                {
-                    "command": "enable",
-                    "expect": "Password:"
-                },
-                {
-                    "command": self.password,
-                    "expect": "#"
-                },
-                {
-                    "command": "conf t",
-                    "expect": "#"
-                },
-                {
-                    "command": cmd2,
-                    "expect": "#"
-                },
-                {
-                    "command": write_memory_config,
-                    "expect": expected_outcome_write_memory_config
-                }
-            ]
-        }
-
-        try:
-            cnt_asa.handle_interactive_session(command_set, self.username, self.password)
-        except ValueError as e:
-            logger.error("Error occurred: {}".format(repr(e)))
-            return self.FAIL
-        else:
-            return self.SUCCESS
-        finally:
-            cnt_asa.close()
-
     def run_copy_file_running_config(self, url, file_path):
         """
         Purpose:    To change configure running-config from HTTP/HTTPS
@@ -585,16 +577,24 @@ class ASAvInstance(CiscoEc2Instance):
         finally:
             cnt_asa.close()
 
-    def configure_cluster(self, octet):
+    def configure_cluster(self, octet, az_in_char, az_in_num, number_of_azs):
         '''
         Purpose:
             Configure cluster
         Arguments:
             * self - ASAv object
             * octet - last octet of management interface
+            * az_in_char - character representint the az
+            * az_in_num - number corresponding to the az
+            * number_of_azs - total number of azs
+        Returns:    SUCCESS, None
         '''
-        local_unit = "local-unit "+octet
-        cls_int = "cluster-interface vni1 ip 1.1.1."+octet+" 255.255.255.0"
+        local_unit = "local-unit {}-{}".format(octet, az_in_char)
+        if number_of_azs != '1':
+            cls_int = "cluster-interface vni1 ip 1.1.{}.{} 255.255.248.0".format(az_in_num,octet)
+        else:
+            cls_int = "cluster-interface vni1 ip 1.1.1.{} 255.255.255.0".format(octet)
+
         write_memory_config = 'copy /noconfirm running-config startup-config'
         expected_outcome_write_memory_config = '#'
         command_set = {
@@ -628,12 +628,20 @@ class ASAvInstance(CiscoEc2Instance):
                     "expect": "#"
                 },
                 {
+                    "command": "no unit join-acceleration",
+                    "expect": "#"
+                },
+                {
                     "command": "enable noconfirm",
                     "expect": "Local Unit is about to join into cluster"
                 },
                 {
                     "command": write_memory_config,
                     "expect": expected_outcome_write_memory_config
+                },
+                {
+                    "command": "wr mem",
+                    "expect": "Building"
                 }
             ]
         }
@@ -735,6 +743,7 @@ class ASAvInstance(CiscoEc2Instance):
         finally:
             cnt_asa.close()
     
+    #  Any breakage in Communication, can cause ASAv to be terminated without de-register license.
     def deregister_smart_license(self):
         """
         Purpose:    Degister smart license
@@ -746,6 +755,9 @@ class ASAvInstance(CiscoEc2Instance):
         cmd1 = 'license smart deregister'
         cmd2 = 'cluster group asav-cluster'
         cmd3 = 'no enable noconfirm'
+        cnt_asa = self.connect_asa()
+        write_memory_config = 'copy /noconfirm running-config startup-config'
+        expected_outcome_write_memory_config = '#'
         
         command_set = {
             "cmd": [
@@ -771,17 +783,16 @@ class ASAvInstance(CiscoEc2Instance):
                 },
                 {
                     "command": cmd3,
-                    "expect": "#"
+                    "expect": "configuration."
                 }
             ]
         }
 
-        cnt_asa = self.connect_asa()
         try:
             cnt_asa.handle_interactive_session(command_set, self.username, self.password)
         except ValueError as e:
             logger.error("Error occurred: {}".format(repr(e)))
-            return None
+            return 'FAIL'
         else:
             return 'SUCCESS'
         finally:

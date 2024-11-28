@@ -12,24 +12,18 @@ The ASAv Auto Scale solution is a CloudFormation template-based deployment that 
 * Completely automated ASAv deployment and configuration.
 * Configuration automatically applied to scaled-out ASAv instances from Config files in S3 bucket.
 * Support for Load Balancers and multi-availability zones.
-* From 7.2 release Gateway load balancer support is added, refer configuration guide for more details
+* From 9.18 release Gateway load balancer support is added, refer configuration guide for more details
 * Support for enabling and disabling the Auto Scale feature.
+* From 9.22 release Dual-Arm support is added, refer configuration guide for more details
+* From 9.22 release, for Single-Arm topology, inside interface is registered to GWLB instead of outside interface.
+* Sample configuration files are given in the directory "sample-az-configuration-txts". <br>
+For deploying GWLB single-arm topology: refer sample files with 'gwlb-single-arm' prefix<br>
+For deploying GWLB dual-arm topology: refer sample files with 'gwlb-dual-arm' prefix<br>
+For deploying NLB single-arm topology: refer sample files with 'nlb' prefix<br>
 
 *Disclaimer: It is required to have prior understanding of AWS deployments & resources*
 
 **Note: Please refer [Configuration Guide](./asav_aws_autoscale.pdf) for detailed explanation**
-
-## Use-case
-
-In this use-case, ASAv three network interfaces are in use: management, inside and outside.
-Inside(Gig0/0) is to be placed in trusted zone same as applications or different. This interface
-doesn't require default route to internet. User can change Security Group for these interfaces & ACLs for subnet.
-Outside(Gig0/1) is to be placed in un-trusted zone, where default route is set to
-internet. Also ports that needs to be opened on External Load Balancer, has to be opened on
-security group & ACLs. Management interface needs to be placed in a subnet where CSSM connection is possible for licensing.
-This is like a application front-end, where traffic from un-trusted zone is passed to applications through ASAv firewall.
-These connections flow through ASAv, however Ingress traffic (inbound connections initiated) to internet/un-trusted zone will not go through ASAv.
-Please refer Configuration guide where use-case is briefly explained.
 
 ## Solution-design
 In this solution, <br>

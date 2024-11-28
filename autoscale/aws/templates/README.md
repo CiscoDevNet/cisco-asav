@@ -1,10 +1,10 @@
 #  templates
 
-## infrastructure template 
+## Infrastructure template 
 
-User should update/modify YAML based CloudFormation template(infrastructure.yaml) as per requirements. <br />
+User should update/modify YAML based CloudFormation template(infrastructure_gwlb.yaml) as per requirements. <br />
 
-This template deploys only required resources for the Autoscale solution. <br>
+This template deploys only required resources for the GWLB Autoscale solution. <br>
 
 Please go through Resource section of YAML for all the resources to be deployed. <br/>
 
@@ -14,11 +14,9 @@ Please go through Resource section of YAML for all the resources to be deployed.
     1. Lambda subnets - It is observed that lambda interfaces take more time to be deleted by AWS 
        hence its subnets fail to delete immediately
  
- ## asav autoscale template
+ ## ASAv Autoscale template
  
-User should update/modify YAML based CloudFormation template(deploy_autoscale.yaml ) as per requirements. <br />
-
-This template deploys only required Autoscale resources. <br>
+This template deploys required Autoscale resources. User should update/modify YAML based CloudFormation template(deploy_autoscale_with_gwlb.yaml ) as per requirements. <br />
 
 Please go through Resource section of YAML for all the resources to be deployed. <br/>
 
@@ -27,4 +25,8 @@ Reason: Resources Name is fed to other resources as parameters or os.env  <br>
 
 Various parameters are kept default & is not being explicitly asked on stack parameter inputs.<br>
 Those can be modified in the template itself, but user should have clear understanding of resources and usage. <br>
+
+Deployment type "dual-arm" is supported Release 9.22 onwards
+
+
 

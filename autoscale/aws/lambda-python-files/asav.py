@@ -1,5 +1,5 @@
 """
-Copyright (c) 2020 Cisco Systems Inc or its affiliates.
+Copyright (c) 2024 Cisco Systems Inc or its affiliates.
 
 All Rights Reserved.
 
@@ -99,7 +99,7 @@ class ASAvInstance(CiscoEc2Instance):
 
     def check_asav_ssh_status(self):
         """
-        Purpose:    To check ASAv SSH is accessible
+        Purpose:   To check ASAv SSH is accessible. When accessible, change ASAv user's password from default to user-defined 
         Parameters:
         Returns:    SUCCESS, FAILURE
         Raises:
@@ -119,7 +119,7 @@ class ASAvInstance(CiscoEc2Instance):
                 return 'FAILURE'
         return 'FAILURE'
 
-    # Polling connectivity to FTDv for specified 'minutes'
+    # Polling connectivity to ASAv for specified 'minutes'
     def poll_asav_ssh(self, minutes):
         """
         Purpose:    To poll ASAv for SSH accessibility
@@ -138,7 +138,7 @@ class ASAvInstance(CiscoEc2Instance):
                     time.sleep(1 * 30)
                 else:
                     return "SUCCESS"
-        logger.info("Failed to connect to device retrying... ")
+        logger.info("Failed to connect to ASAv device after %d minutes ... "%(2*minutes -1))
         return "TIMEOUT"
 
     # Function to set hostname with retries
@@ -383,7 +383,7 @@ class ASAvInstance(CiscoEc2Instance):
         Returns:    SUCCESS, None
         Raises:
         """
-        command = 'show license features'
+        command = 'show license features | grep Authorized'
         verify_string = 'enforce mode: Authorized'
         return self.verify_string_match(command, verify_string)
 
@@ -441,7 +441,6 @@ class ASAvInstance(CiscoEc2Instance):
         command = 'show nat'
         verify_string = 'translate_hits'
         return self.verify_string_match(command, verify_string)
-
     def poll_asa_license_authorized(self, minutes):
         """
         Purpose:    To poll ASAv for Licensing
@@ -462,7 +461,55 @@ class ASAvInstance(CiscoEc2Instance):
                     return "SUCCESS"
         return "TIMEOUT"
 
-    # fixme This operation is inconsistent hence NOT SUPPORTED,
+    def register_smart_license(self, smart_license_token):
+        """
+        Purpose:    Register smart license
+        Parameters: ParamikoSSH class object
+        Returns:    SUCCESS, None
+        Raises:
+        """
+        if not smart_license_token:
+            return 'FAILURE'
+        
+        cmd1 = 'license smart deregister'
+        cmd2 = 'license smart register idtoken '+smart_license_token+' force'
+        
+        command_set = {
+            "cmd": [
+                {
+                    "command": "enable",
+                    "expect": "Password:"
+                },
+                {
+                    "command": self.password,
+                    "expect": "#"
+                },
+                {
+                    "command": "conf t",
+                    "expect": "#"
+                },
+                {
+                    "command": cmd1,
+                    "expect": "#"
+                },
+                {
+                    "command": cmd2,
+                    "expect": "#"
+                }
+            ]
+        }
+
+        cnt_asa = self.connect_asa()
+        try:
+            cnt_asa.handle_interactive_session(command_set, self.username, self.password)
+        except ValueError as e:
+            logger.error("Error occurred: {}".format(repr(e)))
+            return None
+        else:
+            return 'SUCCESS'
+        finally:
+            cnt_asa.close()
+
     #  Any breakage in Communication, can cause ASAv to be terminated without de-register license.
     def deregister_smart_license(self):
         """
@@ -551,9 +598,6 @@ class ASAvInstance(CiscoEc2Instance):
                 }
             ]
         }
-        # Do not print below log, will print password on log
-        # logger.info("Initiating configuration of ASAv with command set: "
-        #             + json.dumps(command_set, separators=(',', ':')))
         logger.info("Executing commands: " + cmd1)
         logger.info("Executing commands: " + cmd2)
         cnt_asa = self.connect_asa()
@@ -709,6 +753,7 @@ class ParamikoSSH:
                     if self.send_cmd_and_wait_for_execution(shell, command, expect) is not None:
                         pass
                     else:
+                        self.close()
                         raise ValueError("Unable to execute command!")
         return
 

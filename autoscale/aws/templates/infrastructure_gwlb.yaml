@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Cisco Systems Inc or its affiliates.
+# Copyright (c) 2024 Cisco Systems Inc or its affiliates.
 #
 # All Rights Reserved.
 #
@@ -26,7 +26,7 @@ Metadata:
           - S3BktName
           - VpcCidr
           - NoOfAZs
-          - ListOfAzs
+          - ListOfAZs
           - MgmtSubnetName
           - MgmtSubnetCidrs
           - InsideSubnetName
@@ -65,7 +65,7 @@ Metadata:
 Conditions:
   support3zone: !Equals
     - !Ref NoOfAZs
-    - 3
+    - 3 
 Parameters:
   PodName:
     Description: Pod name
@@ -100,7 +100,7 @@ Parameters:
       - 2
       - 3
     Default: 2
-  ListOfAzs:
+  ListOfAZs:
     Description: Availability Zones
     Type: CommaDelimitedList
     Default: us-east-1a,us-east-1b,us-east-1c
@@ -151,7 +151,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: !Select ['0', !Ref MgmtSubnetCidrs ]
-      AvailabilityZone: !Select ['0', !Ref ListOfAzs ]
+      AvailabilityZone: !Select ['0', !Ref ListOfAZs ]
       VpcId: !Ref VpcAutoScale
       Tags:
         - Key: Name
@@ -160,7 +160,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: !Select ['1', !Ref MgmtSubnetCidrs ]
-      AvailabilityZone: !Select ['1', !Ref ListOfAzs ]
+      AvailabilityZone: !Select ['1', !Ref ListOfAZs ]
       VpcId: !Ref VpcAutoScale
       Tags:
         - Key: Name
@@ -170,7 +170,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: !Select ['2', !Ref MgmtSubnetCidrs ]
-      AvailabilityZone: !Select ['2', !Ref ListOfAzs ]
+      AvailabilityZone: !Select ['2', !Ref ListOfAZs ]
       VpcId: !Ref VpcAutoScale
       Tags:
         - Key: Name
@@ -179,7 +179,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: !Select ['0', !Ref InsideSubnetCidrs ]
-      AvailabilityZone: !Select ['0', !Ref ListOfAzs ]
+      AvailabilityZone: !Select ['0', !Ref ListOfAZs ]
       VpcId: !Ref VpcAutoScale
       Tags:
         - Key: Name
@@ -188,7 +188,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: !Select ['1', !Ref InsideSubnetCidrs ]
-      AvailabilityZone: !Select ['1', !Ref ListOfAzs ]
+      AvailabilityZone: !Select ['1', !Ref ListOfAZs ]
       VpcId: !Ref VpcAutoScale
       Tags:
         - Key: Name
@@ -198,7 +198,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: !Select ['2', !Ref InsideSubnetCidrs ]
-      AvailabilityZone: !Select ['2', !Ref ListOfAzs ]
+      AvailabilityZone: !Select ['2', !Ref ListOfAZs ]
       VpcId: !Ref VpcAutoScale
       Tags:
         - Key: Name
@@ -207,7 +207,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: !Select ['0', !Ref OutsideSubnetCidrs ]
-      AvailabilityZone: !Select ['0', !Ref ListOfAzs ]
+      AvailabilityZone: !Select ['0', !Ref ListOfAZs ]
       VpcId: !Ref VpcAutoScale
       Tags:
         - Key: Name
@@ -216,7 +216,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: !Select ['1', !Ref OutsideSubnetCidrs ]
-      AvailabilityZone: !Select ['1', !Ref ListOfAzs ]
+      AvailabilityZone: !Select ['1', !Ref ListOfAZs ]
       VpcId: !Ref VpcAutoScale
       Tags:
         - Key: Name
@@ -226,7 +226,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: !Select ['2', !Ref OutsideSubnetCidrs ]
-      AvailabilityZone: !Select ['2', !Ref ListOfAzs ]
+      AvailabilityZone: !Select ['2', !Ref ListOfAZs ]
       VpcId: !Ref VpcAutoScale
       Tags:
         - Key: Name
@@ -238,7 +238,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: !Select ['0', !Ref LambdaSubnetCidrs ]
-      AvailabilityZone: !Select ['0', !Ref ListOfAzs ]
+      AvailabilityZone: !Select ['0', !Ref ListOfAZs ]
       VpcId: !Ref VpcAutoScale
       Tags:
         - Key: Name
@@ -247,7 +247,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: !Select ['1', !Ref LambdaSubnetCidrs ]
-      AvailabilityZone: !Select ['1', !Ref ListOfAzs ]
+      AvailabilityZone: !Select ['1', !Ref ListOfAZs ]
       VpcId: !Ref VpcAutoScale
       Tags:
         - Key: Name
@@ -272,7 +272,7 @@ Resources:
     Type: AWS::EC2::NatGateway
     Properties:
       AllocationId: !GetAtt eipNat.AllocationId
-      SubnetId: !Ref subnetOutside0
+      SubnetId: !Ref subnetMgmt0 
       Tags:
         - Key: Name
           Value: !Join ['-', [!Ref PodName, !Ref PodNumber, 'nat-gw' ] ]
@@ -282,7 +282,7 @@ Resources:
       DomainName: !Join ['', [!Ref PodName, !Ref PodNumber, '.compute.internal' ]]
       DomainNameServers:
         - AmazonProvidedDNS
-  dchpassoc1:
+  dhcpassoc1:
     Type: AWS::EC2::VPCDHCPOptionsAssociation
     Properties:
       VpcId: !Ref VpcAutoScale
@@ -433,25 +433,65 @@ Resources:
         VpcId: !Ref VpcAutoScale
         Tags:
         - Key: Name
-          Value: !Join ['-', [!Ref PodName, !Ref PodNumber, 'asav-instances-sg' ] ]
+          Value: !Join ['-', [!Ref PodName, !Ref PodNumber, 'asav-mgmt-interface-sg' ] ]
         SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0
+        - IpProtocol: "-1"
+          FromPort: 0
+          ToPort: 65535 
+          CidrIp: !Ref VpcCidr
+        SecurityGroupEgress:
+        - IpProtocol: "-1"
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+  InsideInterfaceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Security Group for Instances Inside interface (registered to GWLB)
+        VpcId: !Ref VpcAutoScale
+        Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref PodName, !Ref PodNumber, 'asav-inside-interface-sg' ] ]
+        SecurityGroupIngress:
         - IpProtocol: udp
           FromPort: 6081
           ToPort: 6081
           CidrIp: !Ref VpcCidr
-        SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: 0
           ToPort: 65535
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref VpcCidr
+        SecurityGroupEgress:
         - IpProtocol: udp
+          FromPort: 6081
+          ToPort: 6081
+          CidrIp: !Ref VpcCidr
+        - IpProtocol: tcp
           FromPort: 0
           ToPort: 65535
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref VpcCidr
+  OutsideInterfaceSG: 
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Security Group for Instances Outside interface
+        VpcId: !Ref VpcAutoScale
+        Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref PodName, !Ref PodNumber, 'asav-outside-interface-sg' ] ]
+        SecurityGroupIngress:
+        - IpProtocol: "-1"
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: !Ref VpcCidr
+        SecurityGroupEgress:
+        - IpProtocol: "-1"
+          FromPort: 0
+          ToPort: 65535 
+          CidrIp: 0.0.0.0/0               
   LambdaSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -572,11 +612,11 @@ Outputs:
   VpcIdCreated:
     Description: ID of VPC created
     Value: !Ref VpcAutoScale
-  ListOfAzs:
+  ListOfAZs:
     Value: !If
       - support3zone
-      - !Join [',', [!Select ['0', !Ref ListOfAzs ], !Select ['1', !Ref ListOfAzs ], !Select ['2', !Ref ListOfAzs ] ]]
-      - !Join [',', [!Select ['0', !Ref ListOfAzs ], !Select ['1', !Ref ListOfAzs ] ]]
+      - !Join [',', [!Select ['0', !Ref ListOfAZs ], !Select ['1', !Ref ListOfAZs ], !Select ['2', !Ref ListOfAZs ] ]]
+      - !Join [',', [!Select ['0', !Ref ListOfAZs ], !Select ['1', !Ref ListOfAZs ] ]]
     Description: List of Availability zones
   MgmtSubnetIds:
     Value: !If
@@ -601,7 +641,13 @@ Outputs:
     Description: List of lambda subnet IDs (comma seperated)
   ASAvInstanceSGId:
     Value: !Ref ASAvInstanceSG
-    Description: Security Group ID for ASAv Instances
+    Description: Security Group ID for ASAv Instances Management Interface
+  InsideInterfaceSGId:
+    Value: !Ref InsideInterfaceSG
+    Description: Security Group ID for ASAv Instances Inside Interface
+  OutsideInterfaceSGId:
+    Value: !Ref OutsideInterfaceSG
+    Description: Security Group ID for ASAv Instances Outside Interface  
   LambdaSecurityGroupId:
     Value: !Ref LambdaSecurityGroup
     Description: Security Group ID for Lambda Functions

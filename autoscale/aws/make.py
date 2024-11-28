@@ -1,5 +1,5 @@
 """
-Copyright (c) 2020 Cisco Systems Inc or its affiliates.
+Copyright (c) 2024 Cisco Systems Inc or its affiliates.
 
 All Rights Reserved.
 
@@ -120,12 +120,14 @@ def zip_():
     print("zip_ creates lambda zip files with only required python files")
     list_of_files_configure_asav = ['aws.py', 'configure_asav.py', 'constant.py',
                                     'asav.py', 'utility.py']
+    ## Preparing configure_asav.zip and copying to target directory
     cmd = 'zip -jr ' + target_path + configure_asav_zip + ' '
     for file in list_of_files_configure_asav:
         file = full_dir_path + 'lambda-python-files/' + file
         cmd = cmd + file + ' '
     execute_cmd(cmd)
 
+    ## Preparing lifecycle_asav.zip and copying to target directory
     list_of_files_lifecycle_asav = ['aws.py', 'lifecycle_asav.py', 'constant.py', 'utility.py']
 
     cmd = 'zip -jr ' + target_path + lifecycle_asav_zip + ' '
@@ -141,12 +143,11 @@ def zip_():
 def copy():
     print("copies contents to target directory")
 
-    # cmd = "cp " + full_dir_path + "README.md" + " " + target_path
-    # execute_cmd(cmd)
-
+    #Copy autoscale_layer.zip to target directory
     cmd = "cp " + full_dir_path + 'lambda-python-files/' + lambda_layer_zip + " " + target_path
     execute_cmd(cmd)
 
+    #Copy configuration files to target directory
     list_config_files = [
         'az1-configuration.txt',
         'az2-configuration.txt',
@@ -156,6 +157,7 @@ def copy():
         cmd = "cp " + full_dir_path + 'lambda-python-files/' + file + " " + target_path
         execute_cmd(cmd)
 
+    #Copy template files to target directory
     list_template_files = [
         'deploy_autoscale.yaml',
         'infrastructure.yaml',

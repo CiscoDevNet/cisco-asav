@@ -1,4 +1,4 @@
-#  Copyright (c) 2022 Cisco Systems Inc or its affiliates.
+#  Copyright (c) 2023 Cisco Systems Inc or its affiliates.
 #
 #  All Rights Reserved.
 #
@@ -17,14 +17,14 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: 'AWS::Serverless-2016-10-31'
 Description: >-
-  Deploys Cluster solution for Cisco ASAv instances
+  Deploys Multi-AZ Autoscaling-enabled Cluster solution for Cisco ASAv instances 
 Parameters:
   ClusterGrpNamePrefix:
     Description: >-
       This will be Cluster Group Name prefix with suffix as Cluster Number
     Type: String
     MaxLength: 18
-    Default: ASAv-Cluster
+    Default: MultiASAv-Cluster
   ClusterNumber:
     Description: >-
       This will be suffixed to Cluster Group Name(ASAv-Cluster), if this value is 1 then, group name will be
@@ -79,20 +79,22 @@ Parameters:
     Type: List<AWS::EC2::Subnet::Id>
   LambdaSG:
     Description: >-
-      Provide Security Groups for Lambda functions, Keep outbound connections to ANYWHERE.
+      Provide Security Group for Lambda functions, Keep outbound connections to ANYWHERE.
     Type: List<AWS::EC2::SecurityGroup::Id>
   NoOfAZs:
     Description: >-
-      Only 1 AZ is supported.
+      Total Number of Availability Zones into which ASAv will be deployed (Min 1 and Max 3 depends on Region).
+      PLEASE SELECT NoOfAZs = 2 OR 3 ONLY FOR RELEASES 9.22 AND ABOVE. FOR LOWER RELEASES, SELECT 1.
+      Management, Inside, CCL subnets will span across AZs based on below parameter.
     Type: Number
     AllowedValues:
       - 1
-    Default: 1
+      - 2
+      - 3
+    Default: 3
   AZ:
-    Type: CommaDelimitedList
-    Description: >-
-      Enter 1 Availability Zone
-    Default: us-east-1a
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+    Description: Select Availability Zones to launch ASAvs(Count should match with Number of Availability Zones)
   DeployGWLBE:
     Description: >-
       Please select "Yes", if you like to deploy Gateway Load Balancer Endpoint.
@@ -100,23 +102,23 @@ Parameters:
     AllowedValues:
      - "Yes"
      - "No"
-    Default: "Yes"
+    Default: "No"
   TargetFailover:
     Description: >-
-      With target failover, Gateway load balancer  handles existing traffic flows after a target becomes unhealthy or when the target is deregistered.
-      You can manage these flows by either rehashing them (rebalance) or leaving them at the default state (no_rebalance).
       Enable Target Failover Support ("rebalance" or "no_rebalance").
-      This feature is only supported on version 9.20 onwards.
+      'no_rebalance' - Directs existing flows to failed targets and new flows to healthy targets, ensuring backward compatibility.
+      'rebalance' - GWLB redistributes existing flows while ensuring new flows go to healthy targets.
     Type: String
     AllowedValues:
      - "rebalance"
      - "no_rebalance"
-    Default: "no_rebalance"
+    Default: "rebalance"
   S3BktName:
     Description: The S3 Bucket name for lambda function
     Type: String
     AllowedPattern: '(?=^.{3,63}$)(?!^(\d+\.)+\d+$)(^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$)'
     ConstraintDescription: must be a valid S3 bucket name
+    Default: asav-multiinfra-s3bucketcluster-laawfubf2rct
   TgHealthPort:
     Description: >-
       Provide Health Probe Port for Gateway Load Balancer.
@@ -127,7 +129,7 @@ Parameters:
     Default: 80
   AssignPublicIP:
     Description: >-
-      Please select true if  needs to have public IP address. In case ASAv needs to have public IP then management
+      Please select true if ASAVs need to have public IP address. In case ASAv needs to have public IP then management
       subnet should have AWS IGW as route to internet.
     Type: String
     AllowedValues:
@@ -139,66 +141,46 @@ Parameters:
       Enter only one subnet ID.
       - *SKIP this field, if you are NOT deploying Gateway Load Balancer Endpoint.
       Wrong Subnet selection will cause problems.
-      Make sure that Subnet belongs to correct VPC and Subnet should be in same AZ.
+      Make sure Subnet belongs to correct VPC, and belongs to the AZs specified above.
     Type: String
     Default: "SKIP, if you are NOT deploying Gateway Load Balancer Endpoint."
   MgmtInterfaceSG:
     Description: >-
       Please select security group ID for ASAv instances
     Type: List<AWS::EC2::SecurityGroup::Id>
-  MgmtSubnetId:
+  MgmtSubnetIds:
     Description: >-
-      Select only one subnet. Wrong Subnet selection will cause problems while deploying the ASAv instances.
-      Make sure of adding Subnet from AZ provided.
+      Select subnets from multiple AZs as required
     Type: List<AWS::EC2::Subnet::Id>
   InsideInterfaceSG:
     Description: >-
-      Please select security group ID for ASAv instances inside interface
-    Type: AWS::EC2::SecurityGroup::Id
-  InsideSubnetId:
+      Please select security group ID for NGFWv instances inside interface
+      Make sure of adding Security Group for all AZs provided.
+    Type: List<AWS::EC2::SecurityGroup::Id>
+  InsideSubnetIds:
     Description: >-
-      Select only one subnet.
-      Wrong Subnet selection will cause problems while deploying the ASAv instances.
-      Make sure of adding Subnet from AZ provided.
+      Select subnets from multiple AZs as required
     Type: List<AWS::EC2::Subnet::Id>
   CCLInterfaceSG:
     Description: >-
       Please select security group ID for ASAv instances CCL interface
     Type: AWS::EC2::SecurityGroup::Id
-  CCLSubnetId:
+  CCLSubnetIds:
     Description: >-
-      Select only one subnet.
-      Wrong Subnet selection will cause problems while deploying the ASAv instances.
-      Make sure of adding Subnet from AZ provided.
+      Select subnets from multiple AZs as required
     Type: List<AWS::EC2::Subnet::Id>
-  CCLfirstIP:
+  CCLSubnetRanges:
     Description: >-
-      Enter first IP of CCL subnet.
+      Enter IP range of CCL subnets for different AZs.
       Exclude first 4 reserved IPs.
-      IP pool for Cluster Control Link (CCL).
-      IP will be allocated to CCL interface from CCL IP Pool.
-    Type: String
-    MinLength: 7
-    MaxLength: 15
-    AllowedPattern: '^(?:(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])(\.(?!$)|$)){4}$'
+      This is the IP pool for Cluster Control Link (CCL),
+      IP will be allocated to ASAvs' CCL interfaces from CCL IP Pool.
+    Type: CommaDelimitedList
     ConstraintDescription: must be a valid IP address
-    Default: 10.3.90.4
-  CCLlastIP:
-    Description: >-
-      Enter last IP of CCL subnet.
-      Exclude last broadcast IP.
-      IP pool for Cluster Control Link (CCL).
-      IP will be allocated to CCL interface from CCL IP Pool.
-    Type: String
-    MinLength: 7
-    MaxLength: 15
-    AllowedPattern: '^(?:(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])(\.(?!$)|$)){4}$'
-    ConstraintDescription: must be a valid IP address
-    Default: 10.3.90.254
+    Default: 10.3.90.4 10.3.90.30,10.3.91.4 10.3.91.30,10.3.92.4 10.3.92.30
   InstanceType:
     Description: >-
       Cisco ASAv EC2 instance type.
-      Select 4xlarge (Which supports 5 interfaces), if you are NOT using Gateway Load Balancer.
       Make sure that AWS Region supports selected instance type.
     Type: String
     AllowedValues:
@@ -238,9 +220,9 @@ Parameters:
   AmiID:
     Description: >-
       Please choose correct AMI ID as per the region, desired version and license type(BYOL/PAYG).
-      ASAv version 9.19 onwards releases are supported.
+      ASAv version 9.19 onwards support clustering, versions 9.22 onwards supports the multi-AZ enhancements
     Type: AWS::EC2::Image::Id
-    Default: ami-0265b4bbf47bd0171
+    Default: ami-024f546cb9cbae1bb
   ConfigFileURL:
     Description: >-
       [Optional] Example: https://asav-example.s3.amazonaws.com/asav-configuration.txt
@@ -262,8 +244,94 @@ Parameters:
     MinLength: 8
     Type: String
     ConstraintDescription: password must be of minimum 8 characters
+    Default: c0mpleX@1209
+  CpuThresholds:
+    Description: >-
+      [Optional] Specifying non-zero lower and upper threshold will create respective Scale policies.
+      If 0,0 is selected, no cpu scaling alarm or policies will be created.
+      Evaluation points & Data points are kept default/recommended values
+    Type: CommaDelimitedList
+    Default: 10,70
+    AllowedValues:
+      - 0,0
+      - 0,90
+      - 0,80
+      - 0,70
+      - 0,60
+      - 0,50
+      - 0,40
+      - 0,30
+      - 0,20
+      - 0,10
+      - 5,90
+      - 5,70
+      - 5,50
+      - 5,30
+      - 5,15
+      - 10,90
+      - 10,80
+      - 10,70
+      - 10,60
+      - 10,50
+      - 10,40
+      - 10,30
+      - 10,20
+      - 10,0
+      - 20,90
+      - 20,80
+      - 20,70
+      - 20,60
+      - 20,50
+      - 20,30
+      - 20,0
+      - 30,90
+      - 30,80
+      - 30,70
+      - 30,60
+      - 30,50
+      - 30,40
+      - 30,0
+      - 40,90
+      - 40,80
+      - 40,70
+      - 40,60
+      - 40,50
+      - 40,0
+      - 50,90
+      - 50,80
+      - 50,70
+      - 50,60
+      - 50,0
+      - 60,90
+      - 60,80
+      - 60,70
+      - 60,0
+      - 70,90
+      - 70,80
+      - 70,0
+      - 80,95
+      - 80,90
+      - 80,0
+      - 90,95
+      - 90,0
+  InstanceMetadataServiceVersion:
+    Description: Select IMDS version to be used by the instances
+    Type: String
+    Default: "V1 and V2 (token optional)"
+    AllowedValues:
+      - "V1 and V2 (token optional)"
+      - "V2 only (token required) [IMDSv2 ONLY APPLICABLE FOR VERSION 9.22 AND ABOVE]"
 
 Conditions:
+  support1zone: !Equals
+    - !Ref NoOfAZs
+    - 1
+  support2zone: !Equals
+    - !Ref NoOfAZs
+    - 2
+  support3zone: !Equals
+    - !Ref NoOfAZs
+    - 3
   UserNotifyEmail: !Not
     - !Equals
       - ''
@@ -284,6 +352,19 @@ Conditions:
     - !Equals
       - "No"
       - !Ref DeployGWLBE
+  DoCpuUpPolcy: !Not
+    - !Equals
+      - 0
+      - !Select ['1', !Ref CpuThresholds ]
+  DoCpuLowPolcy: !Not
+    - !Equals
+      - 0
+      - !Select ['0', !Ref CpuThresholds ]
+  EnableIMDSv2:
+    Fn::Equals:
+      - !Ref InstanceMetadataServiceVersion
+      - "V2 only (token required) [IMDSv2 ONLY APPLICABLE FOR VERSION 9.22 AND ABOVE]"
+
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -301,12 +382,11 @@ Metadata:
           - NotifyEmailID
           - S3BktName
           - VpcId
-          - MgmtSubnetId
-          - InsideSubnetId
+          - MgmtSubnetIds
+          - InsideSubnetIds
           - LambdaSubnets
-          - CCLSubnetId
-          - CCLfirstIP
-          - CCLlastIP
+          - CCLSubnetIds
+          - CCLSubnetRanges
           - MgmtInterfaceSG
           - InsideInterfaceSG
           - LambdaSG
@@ -330,7 +410,11 @@ Metadata:
           - ConfigFileURL
           - KmsArn
           - asavPassword
-
+          - InstanceMetadataServiceVersion
+      - Label:
+          default: Scaling Thresholds Configuration
+        Parameters:
+          - CpuThresholds
     ParameterLabels:
       ClusterGrpNamePrefix:
         default: Cluster Group Name Prefix
@@ -376,24 +460,24 @@ Metadata:
         default: Subnet ID for Gateway Load Balancer Endpoint
       MgmtInterfaceSG:
         default: Security Groups for ASAv Instance
-      MgmtSubnetId:
+      MgmtSubnetIds:
         default: Subnet for ASAv Management Interface
       InsideInterfaceSG:
         default: Security Group for ASAv Instance inside
-      InsideSubnetId:
+      InsideSubnetIds:
         default: Subnet for ASAv Inside Interface
       CCLInterfaceSG:
         default: Security Group for ASAv CCL
-      CCLSubnetId:
+      CCLSubnetIds:
         default: Subnet for ASAv CCL Interface
-      CCLfirstIP:
-        default: First IP of CCL Subnet (CCL IP Pool)
-      CCLlastIP:
-        default: Last IP of CCL Subnet (CCL IP Pool)
+      CCLSubnetRanges:
+        default: IP range of CCL Subnets for different AZs (CCL IP Pool)
       KmsArn:
         default: KMS Master Key ARN
       asavPassword:
         default: ASAv Password
+      InstanceMetadataServiceVersion:
+        default: Instance Metadata Service Version
 
 Resources:
 # Lambda Layer ---------------------------------------------------------
@@ -476,7 +560,10 @@ Resources:
     Properties:
       Name: !Join ['-', [!Ref ClusterGrpNamePrefix, !Ref ClusterNumber, 'GWLB' ] ]
       Type: gateway
-      Subnets: !Ref InsideSubnetId
+      Subnets: !Ref InsideSubnetIds
+      LoadBalancerAttributes: 
+        - Key: load_balancing.cross_zone.enabled
+          Value: true
   tg:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     DependsOn:
@@ -675,8 +762,22 @@ Resources:
            - !Ref 'AWS::NoValue'
          ASG_NAME: !Join ['-', [!Ref ClusterGrpNamePrefix, !Ref ClusterNumber ] ]
          NO_OF_AZs: !Ref NoOfAZs
-         AZ_LIST : !Select ['0', !Ref AZ ]
+         AZ_LIST : !If
+              - support2zone
+              - !Join ['::', [ !Select ['0', !Ref AZ ], !Select ['1', !Ref AZ ] ] ]
+              - !If
+                - support3zone
+                - !Join ['::', [ !Select ['0', !Ref AZ ], !Select ['1', !Ref AZ ], !Select ['2', !Ref AZ ] ] ]
+                - !Select ['0', !Ref AZ ]
          ASA_LICENSE_TYPE: !Ref LicenseType
+         # ToDo : Pass CCL subnet range
+         CCL_SUBNET: !If
+              - support2zone
+              - !Join ['::', [ !Select ['0', !Ref CCLSubnetIds ], !Select ['1', !Ref CCLSubnetIds ] ] ]
+              - !If
+                - support3zone
+                - !Join ['::', [ !Select ['0', !Ref CCLSubnetIds ], !Select ['1', !Ref CCLSubnetIds ], !Select ['2', !Ref CCLSubnetIds ] ] ]
+                - !Select ['0', !Ref CCLSubnetIds ]
          GWLB_ARN: !Ref gwlb
          ASAv_PASSWORD: !Ref asavPassword
          CONFIG_FILE_URL: !If
@@ -770,11 +871,23 @@ Resources:
           ASG_NAME: !Join [ '-', [!Ref ClusterGrpNamePrefix, !Ref ClusterNumber]]
           NO_OF_AZs: !Ref NoOfAZs
           ASA_LICENSE_TYPE: !Ref LicenseType
-          INSIDE_SUBNET: !Select ['0', !Ref InsideSubnetId ]
-          CCL_SUBNET: !Select ['0', !Ref CCLSubnetId ]
+          INSIDE_SUBNET: !If
+              - support2zone
+              - !Join ['::', [ !Select ['0', !Ref InsideSubnetIds ], !Select ['1', !Ref InsideSubnetIds ] ] ]
+              - !If
+                - support3zone
+                - !Join ['::', [ !Select ['0', !Ref InsideSubnetIds ], !Select ['1', !Ref InsideSubnetIds ], !Select ['2', !Ref InsideSubnetIds ] ] ]
+                - !Select ['0', !Ref InsideSubnetIds ]
+          CCL_SUBNET: !If
+              - support2zone
+              - !Join ['::', [ !Select ['0', !Ref CCLSubnetIds ], !Select ['1', !Ref CCLSubnetIds ] ] ]
+              - !If
+                - support3zone
+                - !Join ['::', [ !Select ['0', !Ref CCLSubnetIds ], !Select ['1', !Ref CCLSubnetIds ], !Select ['2', !Ref CCLSubnetIds ] ] ]
+                - !Select ['0', !Ref CCLSubnetIds ]
           GWLB_ARN: !Ref gwlb
           LB_DEREGISTRATION_DELAY: 180
-          SECURITY_GRP_1: !Ref InsideInterfaceSG
+          SECURITY_GRP_1: !Select ['0', !Ref InsideInterfaceSG ]
           SECURITY_GRP_2: !Ref CCLInterfaceSG
           CLS_MANAGER_TOPIC: !Ref CLSmanagerTopic
           USER_NOTIFY_TOPIC_ARN: !If
@@ -811,7 +924,76 @@ Resources:
       Action: 'lambda:InvokeFunction'
       Principal: events.amazonaws.com
       SourceArn: !GetAtt LifeCycleEvent.Arn
-
+# ------------------------------------------------------------------------
+# AWS provided Dynamic Scaling
+# ------------------------------------------------------------------------
+  ScaleOutCPUpolicy:
+    DependsOn:
+      - ASAvGroup
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref ASAvGroup
+      PolicyType: SimpleScaling
+      ScalingAdjustment: 1
+  ScaleInCPUpolicy:
+    DependsOn:
+      - ASAvGroup
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref ASAvGroup
+      PolicyType: SimpleScaling
+      ScalingAdjustment: -1
+# ------------------------------------------------------------------------
+# Scaling Alarm & Notification
+# ------------------------------------------------------------------------
+  CPUUpperboundAlarm1:
+    Condition: DoCpuUpPolcy
+    DependsOn:
+      - ASAvGroup
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Join ['', [!Ref ClusterGrpNamePrefix, '-',!Ref ClusterNumber, ' CPU-Upper-Threshold-Breach' ] ]
+      ActionsEnabled: true
+      Namespace: AWS/EC2
+      AlarmActions:
+        - !Ref ScaleOutCPUpolicy
+      AlarmDescription: Alarm when CPU usage hits upper threshold
+      ComparisonOperator: GreaterThanThreshold
+      DatapointsToAlarm: 3
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref ASAvGroup
+      EvaluationPeriods: 3
+      MetricName: CPUUtilization
+      Threshold: !Select ['1', !Ref CpuThresholds ]
+      Period: 60
+      Statistic: Average
+      Unit: Percent
+  CPULowerboundAlarm1:
+    Condition: DoCpuLowPolcy
+    DependsOn:
+      - ASAvGroup
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Join ['', [!Ref ClusterGrpNamePrefix, '-',!Ref ClusterNumber, ' CPU-Lower-Threshold-Breach' ] ]
+      ActionsEnabled: true
+      Namespace: AWS/EC2
+      AlarmActions:
+        - !Ref ScaleInCPUpolicy
+      AlarmDescription: Alarm when CPU usage hits lower threshold
+      ComparisonOperator: LessThanThreshold
+      DatapointsToAlarm: 8
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref ASAvGroup
+      EvaluationPeriods: 8
+      MetricName: CPUUtilization
+      Threshold: !Select ['0', !Ref CpuThresholds ]
+      Period: 60
+      Statistic: Average
+      Unit: Percent
 # ------------------------------------------------------------------------
 # Cluster Group & Launch Template
 # ------------------------------------------------------------------------
@@ -822,13 +1004,25 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: !Join ['-', [!Ref ClusterGrpNamePrefix, !Ref ClusterNumber ] ]
-      VPCZoneIdentifier: !Ref MgmtSubnetId
+      VPCZoneIdentifier: !If
+        - support1zone
+        - !Split
+          - ':'
+          - !Select ['0', !Ref MgmtSubnetIds ]
+        - !If
+          - support2zone
+          - !Split
+            - ':'
+            - !Join [':', [ !Select ['0', !Ref MgmtSubnetIds ], !Select ['1', !Ref MgmtSubnetIds ] ] ]
+          - !Split
+            - ':'
+            - !Join [':', [ !Select ['0', !Ref MgmtSubnetIds ], !Select ['1', !Ref MgmtSubnetIds ], !Select ['2', !Ref MgmtSubnetIds ] ] ]
       LaunchTemplate:
         LaunchTemplateId: !Ref ASAvLaunchTemplate
         Version: 1
-      MinSize: !Ref ClusterSize
+      MinSize: 1
       DesiredCapacity: !Ref ClusterSize
-      MaxSize: !Ref ClusterSize
+      MaxSize: 16
       MetricsCollection:
         - Granularity: 1Minute
           Metrics:
@@ -837,8 +1031,8 @@ Resources:
             - GroupTerminatingInstances
             - GroupTotalInstances
             - GroupStandbyInstances
-      HealthCheckGracePeriod: 2000
-      Cooldown: 2000
+      HealthCheckGracePeriod: 900
+      Cooldown: 900
       TerminationPolicies:
         - OldestLaunchConfiguration
         - OldestLaunchTemplate
@@ -849,7 +1043,7 @@ Resources:
           LifecycleHookName: Launch_LifecycleHook
           LifecycleTransition: 'autoscaling:EC2_INSTANCE_LAUNCHING'
         - DefaultResult: CONTINUE
-          HeartbeatTimeout: 120
+          HeartbeatTimeout: 400
           LifecycleHookName: Terminate_LifecycleHook
           LifecycleTransition: 'autoscaling:EC2_INSTANCE_TERMINATING'
   ASAvLaunchTemplate:
@@ -857,6 +1051,16 @@ Resources:
     Properties:
       LaunchTemplateName: !Join ['-', [!Ref ClusterGrpNamePrefix, !Ref ClusterNumber, 'ASAv-launch-template' ] ]
       LaunchTemplateData:
+        MetadataOptions:
+          Fn::If:
+            - EnableIMDSv2
+            -
+              HttpEndpoint: "enabled"  # Use Amazon DNS for metadata service
+              HttpProtocolIpv6: "disabled"  # Disable IPv6 for metadata service
+              HttpPutResponseHopLimit: 1  # Set hop limit to 1
+              HttpTokens: "required"  # Require IMDSv2 for metadata requests
+              # InstanceMetadataTags: "enabled"  # Include custom instance metadata tags
+            - !Ref "AWS::NoValue"
         EbsOptimized: false
         ImageId: !Ref AmiID
         InstanceType: !Ref InstanceType
@@ -872,79 +1076,119 @@ Resources:
         Monitoring:
           Enabled: true
         UserData:
-          Fn::Base64: !Sub |
-            ! ASA Version
-            !
-            jumbo-frame reservation
-            !
-            cluster interface-mode individual force
-            !
-            interface Management0/0
-             management-only
-             nameif management
-             security-level 100
-             ip address dhcp setroute
-            !
-            interface TenGigabitEthernet0/0
-             nameif geneve-vtep-ifc
-             security-level 0
-             ip address dhcp
-            !
-            interface TenGigabitEthernet0/1
-             nve-only cluster
-             nameif ccl_link
-             security-level 0
-             ip address dhcp
-            !
-            interface vni1
-             description Clustering Interface
-             segment-id 1
-             vtep-nve 1
-            !
-            interface vni2
-             proxy single-arm
-             nameif ge
-             security-level 0
-             vtep-nve 2
-            !
-            object network ccl_link
-             range ${CCLfirstIP} ${CCLlastIP}
-            object-group network cluster_group
-             network-object object ccl_link
-            nve 2
-             encapsulation geneve
-             source-interface geneve-vtep-ifc
-            nve 1
-             encapsulation vxlan
-             source-interface ccl_link
-             peer-group cluster_group
-            !
-            same-security-traffic permit inter-interface
-            same-security-traffic permit intra-interface
-            !
-            mtu geneve-vtep-ifc 1826
-            mtu ccl_link 1980
-            aaa authentication listener http geneve-vtep-ifc port ${TgHealthPort}
-            !
-            crypto key generate rsa modulus 2048
-            username asavuser password AsAv_ClU3TeR44 privilege 15
-            ssh 0 0 management
-            aaa authentication ssh console LOCAL
-            ssh version 2
-            ssh timeout 60
-            !
-            enable password AsAv_ClU3TeR44 level 15
-            !
-            dns domain-lookup management
-            DNS server-group DefaultDNS
-                name-server 8.8.8.8
-            ! License configuration
-            call-home
-            profile License
-            destination transport-method http
-            destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
-            license smart
-            feature tier standard
-            throughput level 1G
-            wr mem
-            ! license smart register idtoken <TOKEN>
+          "Fn::Base64":
+            Fn::Join:
+              - ""
+              - - |
+                  ! ASA Version
+                  !
+                  jumbo-frame reservation
+                  !
+                  cluster interface-mode individual force
+                  !
+                  interface Management0/0
+                  management-only
+                  nameif management
+                  security-level 100
+                  ip address dhcp setroute
+                  !
+                  interface TenGigabitEthernet0/0
+                  nameif geneve-vtep-ifc
+                  security-level 0
+                  ip address dhcp setroute
+                  !
+                  interface TenGigabitEthernet0/1
+                  nve-only cluster
+                  nameif ccl_link
+                  security-level 0
+                  ip address dhcp
+                  !
+                  interface vni1
+                  description Clustering Interface
+                  segment-id 1
+                  vtep-nve 1
+                  !
+                  interface vni2
+                  proxy single-arm
+                  nameif ge
+                  security-level 0
+                  vtep-nve 2
+                  !
+                - !If
+                  - support3zone
+                  - !Sub
+                    - |
+                      object network ccl_link1
+                      range ${CCLSubnet0}
+                      object network ccl_link2
+                      range ${CCLSubnet1}
+                      object network ccl_link3
+                      range ${CCLSubnet2}
+                      object-group network cluster_group
+                      network-object object ccl_link1
+                      network-object object ccl_link2
+                      network-object object ccl_link3
+                    - CCLSubnet0: !Select ['0', !Ref CCLSubnetRanges ]
+                      CCLSubnet1: !Select ['1', !Ref CCLSubnetRanges ]
+                      CCLSubnet2: !Select ['2', !Ref CCLSubnetRanges ]
+                  - !If
+                    - support2zone
+                    - !Sub
+                      - |
+                        object network ccl_link1
+                        range ${CCLSubnet0}
+                        object network ccl_link2
+                        range ${CCLSubnet1}
+                        object-group network cluster_group
+                        network-object object ccl_link1
+                        network-object object ccl_link2
+                      - CCLSubnet0: !Select ['0', !Ref CCLSubnetRanges ]
+                        CCLSubnet1: !Select ['1', !Ref CCLSubnetRanges ]
+                    - !Sub 
+                      - |
+                        object network ccl_link
+                        range ${CCLSubnet0}
+                        object-group network cluster_group
+                        network-object object ccl_link
+                      - CCLSubnet0: !Select ['0', !Ref CCLSubnetRanges ]
+                - |
+                  nve 2
+                  encapsulation geneve
+                  source-interface geneve-vtep-ifc
+                  nve 1
+                  encapsulation vxlan
+                  source-interface ccl_link
+                  peer-group cluster_group
+                  !
+                  same-security-traffic permit inter-interface
+                  same-security-traffic permit intra-interface
+                  !
+                  mtu geneve-vtep-ifc 1826
+                  mtu ccl_link 1980
+                - !Sub
+                  - |
+                    aaa authentication listener http geneve-vtep-ifc port ${TgHealthPort}
+                    !
+                    crypto key generate rsa modulus 2048
+                    username asavuser password AsAv_ClU3TeR44 privilege 15
+                    ssh 0 0 management
+                    aaa authentication ssh console LOCAL
+                    ssh version 2
+                    ssh timeout 60
+                    !
+                    enable password AsAv_ClU3TeR44 level 15
+                    !
+                    dns domain-lookup management
+                    DNS server-group DefaultDNS
+                        name-server 8.8.8.8 management
+                    ! License configuration
+                    call-home
+                    profile License
+                    destination transport-method http
+                    destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
+                    license smart
+                    feature tier standard
+                    throughput level 1G
+                    wr mem
+                    ! license smart register idtoken <TOKEN>
+                  - TgHealthPort1: !Ref TgHealthPort

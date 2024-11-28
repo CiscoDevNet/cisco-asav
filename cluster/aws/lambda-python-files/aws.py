@@ -25,7 +25,9 @@ import boto3
 import botocore
 import json
 import os
+import time
 import re
+import ipaddress
 from botocore.exceptions import ClientError
 import constant as const
 import utility as utl
@@ -236,6 +238,72 @@ class EC2Instance:
         else:
             return response
 
+    def get_subnet_id_by_interface_name(self, inst_id):
+        """
+        Purpose:    To get EC2 instance subnet details from an interface name
+        Parameters: Instance Id
+        Returns:    ccl subnet id of the instance 
+        Raises:
+        """
+        ec2_client = boto3.client('ec2')
+        interface_name =  '{}-data-interface-2'.format(inst_id)
+        # Describe network interfaces associated with the instance
+        response = ec2_client.describe_network_interfaces(Filters=[{'Name': 'attachment.instance-id', 'Values': [inst_id]}])
+    
+        for network_interface in response['NetworkInterfaces']:
+            for tag in network_interface['TagSet']:
+                if tag['Key'] == 'Name' and tag['Value'] == interface_name:
+                    subnet_id = network_interface['SubnetId']
+                    return subnet_id
+        return None
+
+    def generate_ccl_route_statements(self, ccl_subnet_ids, curr_ccl_subnet_id):
+        """
+        Purpose:    To generate ccl route statement for other az subnets
+        Parameters: 
+        * ccl_subnet_ids - list of ccl subnet ids of other azs
+        * curr_ccl_subnet_id - current ccl subnet id 
+        Returns:    A list of ccl routes 
+        Raises:
+        """
+        ec2_client = boto3.client('ec2')
+        ccl_routes = []
+        
+        # calculating the current ccl subnet gateway ip
+        subnet_response = ec2_client.describe_subnets(SubnetIds=[curr_ccl_subnet_id])
+        subnet_cidr = subnet_response['Subnets'][0]['CidrBlock']
+        subnet_network = ipaddress.IPv4Network(subnet_cidr)
+        curr_ccl_gateway_ip = str(subnet_network.network_address + 1)
+        
+        # calculating the subnet cidr and subnet mask 
+        for subnet_id in ccl_subnet_ids:
+            subnet_response = ec2_client.describe_subnets(SubnetIds=[subnet_id])
+            subnet_cidr = subnet_response['Subnets'][0]['CidrBlock']
+            subnet_network = ipaddress.IPv4Network(subnet_cidr)
+            subnet_prefix = str(subnet_network.network_address)
+            subnet_mask = str(subnet_network.netmask)
+            route_statement = f"route ccl_link {subnet_prefix} {subnet_mask} {curr_ccl_gateway_ip} 1"
+            ccl_routes.append(route_statement)
+            time.sleep(5)
+        return ccl_routes
+    
+    def get_instance_availability_zone(self, instance_id):
+        """
+        Purpose:    To retrieve the availability zone of the instance
+        Parameters: Instance Id
+        Returns:    AvailabilityZone of the instance
+        Raises:
+        """
+        ec2_client = boto3.client('ec2')
+        response = ec2_client.describe_instances(InstanceIds=[instance_id])
+        reservations = response.get('Reservations', [])
+        for reservation in reservations:
+            instances = reservation.get('Instances', [])
+            for instance in instances:
+                return instance['Placement']['AvailabilityZone']
+        return None
+
+
     def get_instance_interfaces_ip(self):
         """
         Purpose:    To get all 4 interfaces IPs
@@ -263,9 +331,10 @@ class EC2Instance:
 
         r = self.get_private_ip_of_interface(const.ENI_NAME_OF_INTERFACE_1)
         if r is not None:
-            interfaces_ip.update({'inside_ip': r})
+            interfaces_ip.update({'inside_ip1': r})
         else:
             return None
+
         logger.debug("Retrieved Interfaces IP " + str(interfaces_ip))
         return interfaces_ip
 

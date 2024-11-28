@@ -95,7 +95,7 @@ def get_user_input_lifecycle_asav():
         "SUBNET_ID_LIST_1": [],
         "SUBNET_ID_LIST_2": [],
         "GWLB_ARN": "",
-        "SECURITY_GRP_1": "",
+        "SECURITY_GRP_1": [],
         "SECURITY_GRP_2": "",
         "LB_DEREGISTRATION_DELAY": "",
         "CLS_MANAGER_TOPIC": "",

@@ -121,10 +121,6 @@ def create_interface_and_attach(ec2_instance):
     subnets_list_in_az = ec2_instance.get_subnet_list_in_az(instance_az)
     logger.info("List of subnet in %s is: %s" % (instance_az, subnets_list_in_az))
 
-    # Get the security group ID of this instance
-    # sec_grp_id = ec2_instance.get_security_group_id()
-    # logger.info("Security group id found for instance: " + sec_grp_id)
-
     # Create and Attach interfaces from respective subnet
     utl.put_line_in_log('Attaching Interface', 'dot')
     # Should be able to add defined max no of interfaces
@@ -142,7 +138,6 @@ def create_interface_and_attach(ec2_instance):
             logger.error("For interface %s, less than one subnet found from an availability zone!" % eni_name)
             logger.error(subnet_id)
             return 'FAIL'
-
         # Create interface in the subnet with security group
         interface_id = ec2_instance.create_interface(str(subnet_id[0]), sec_grp_id, eni_name)
 

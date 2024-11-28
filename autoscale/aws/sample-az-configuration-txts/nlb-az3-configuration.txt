@@ -1,0 +1,34 @@
+!
+! Load Balancer Health probe Configuration
+object network aws-metadata-server
+host 169.254.169.254
+object service aws-health-port
+service tcp destination eq 7777
+object service aws-metadata-http-port
+service tcp destination eq 80
+! Change below route GW according to your Gig0/0 subnet GW
+route inside 169.254.169.254 255.255.255.255 10.0.102.1 1
+nat (outside,inside) source static any interface destination static interface aws-metadata-server service aws-health-port aws-metadata-http-port
+!
+! Update access policy make sure above traffic is allowed
+!
+access-list all extended permit ip any any
+access-group all global
+!
+! Change below data plane Configuration as per your requirement
+!
+route inside 10.0.0.0 255.255.0.0 10.0.102.1 1
+object network http-server-80
+host 169.254.169.254
+object network file-server-8000
+host 10.0.51.27
+object service http-server-80-port
+service tcp destination eq 80
+nat (outside,inside) source static any interface destination static interface http-server-80 service http-server-80-port http-server-80-port
+object service file-server-8000-port
+service tcp destination eq 8000
+nat (outside,inside) source static any interface destination static interface file-server-8000 service file-server-8000-port file-server-8000-port
+object service https-server-443-port
+service tcp destination eq 443
+nat (outside,inside) source static any interface destination static interface http-server-80 service https-server-443-port http-server-80-port
+!

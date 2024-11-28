@@ -1,5 +1,5 @@
 """
-Copyright (c) 2020 Cisco Systems Inc or its affiliates.
+Copyright (c) 2024 Cisco Systems Inc or its affiliates.
 
 All Rights Reserved.
 
@@ -58,7 +58,7 @@ def lambda_handler(event, context):
             utl.put_line_in_log('Configure ASAv Lambda Handler finished', 'thick')
             return
     except Exception as e:
-        logger.info("Received an event but not a SNS notification event")
+        logger.info("Received an event but not an SNS notification event")
         logger.debug(str(e))
         pass
 
@@ -133,13 +133,13 @@ def handle_sns_event(sns_data):
         except KeyError as e:
             logger.debug("Exception occurred {}".format(repr(e)))
 
-    try:
+    try: # Exception-handling for cases where function counter <= 0
         if sns_msg_attr['instance_id'] is None:
             logger.critical("Received instance_id None!")
             utl.put_line_in_log('SNS Handler Finished', 'thin')
             return
         if int(sns_msg_attr['counter']) <= 0 and sns_msg_attr['to_function'] != 'vm_delete':
-            logger.critical("Has ran out of retries! calling vm_delete...")
+            logger.critical("Function %s has run out of retries !!  Calling vm_delete...", sns_msg_attr['to_function'])
             if not const.DISABLE_VM_DELETE_FUNC:
                 message_subject = 'EVENT: ' + user_input['AutoScaleGrpName'] + ' ' + 'instance delete' + ' ' + \
                                   sns_msg_attr['instance_id']
@@ -152,17 +152,6 @@ def handle_sns_event(sns_data):
             return
         elif int(sns_msg_attr['counter']) <= 0 and sns_msg_attr['to_function'] == 'vm_delete':
             logger.critical("Unable to delete device %s" % sns_msg_attr['instance_id'])
-
-            # if user_input['USER_NOTIFY_TOPIC_ARN'] is not None:
-            #     # Email to user
-            #     details_of_the_device = None
-            #     message_subject = 'EVENT: ' + user_input['AutoScaleGrpName'] + ' ' + \
-            #                       sns_msg_attr['instance_id'] + ' unable to remove instance'
-            #     msg_body = utl.sns_msg_body_user_notify_topic('VM Not Removed', user_input['AutoScaleGrpName'],
-            #                                                   sns_msg_attr['instance_id'], details_of_the_device)
-            #     sns.publish_to_topic(user_input['USER_NOTIFY_TOPIC_ARN'], message_subject, msg_body)
-            #     # -------------
-
             utl.put_line_in_log('SNS Handler Finished', 'thin')
             return
     except KeyError as e:
@@ -175,6 +164,8 @@ def handle_sns_event(sns_data):
 
     instance_state = asa.get_instance_state()
     logger.info("Instance %s " % sns_msg_attr['instance_id'] + "is in %s state" % instance_state)
+
+    #Checking instance state is running / pending for functions 'vm_ready' , 'vm_configure' , 'vm_license'
     if sns_msg_attr['to_function'] == 'vm_delete':
         pass
     elif instance_state == 'running' or instance_state == 'pending':
@@ -369,11 +360,6 @@ def handle_ec2_terminate_event(instance_id):
     if instance_id is not None:  # Since Instance termination initiated, delete entries
         logger.info("Instance termination has been initiated: " + instance_id)
 
-        # logger.info("Initiating vm_delete function via SNS")
-        # message_subject = 'EVENT: ' + user_input['AutoScaleGrpName'] + ' ' + 'instance delete' + ' ' + instance_id
-        # msg_body = utl.sns_msg_body_configure_asav_topic('VM not accessible', 'vm_delete', 'FIRST', instance_id)
-        # sns.publish_to_topic(user_input['ConfigureASAvTopic'], message_subject, msg_body)
-
         if user_input['USER_NOTIFY_TOPIC_ARN'] is not None:
             # Email to user
             details_of_the_device = None
@@ -399,14 +385,6 @@ def execute_vm_ready_first(asa):
     if poll_asav == "SUCCESS":
         asa.configure_hostname_with_timeout(const.ASAV_POLL_TIME_IN_MIN_VM_READY)
         asa.create_instance_tags('ASAvConnectionStatus', 'AVAILABLE')
-
-        # Let's get SN of the ASAv:  show version | include .*[Ss]erial.[Nn]umber:.*
-        # try:
-        #     asa.create_instance_tags('ASAvSerialNumber', asa.get_sn_of_asav())
-        # except Exception as e:
-        #     logger.info("Unable to get SN of the device")
-        #     logger.debug("{}".format(repr(e)))
-
         return 'SUCCESS'
     return 'FAIL'
 
@@ -420,13 +398,23 @@ def execute_vm_configure_first(asa):
     """
     # Apply device configuration
     asa.create_instance_tags('ASAvConfigurationStatus', 'ONGOING')
+    proxy_to_topology = {
+    'dual-arm': 'gwlb-dual-arm',
+    'single-arm': 'gwlb-single-arm'
+    }
+    #Determine the topology type ['nlb', 'gwlb-single-arm' or 'gwlb-dual-arm'] based on GENEVE_SUPPORT and PROXY_TYPE
+    if user_input['GENEVE_SUPPORT'] == 'enable':
+        topology_type = proxy_to_topology.get(user_input['PROXY_TYPE'])
+    elif user_input['GENEVE_SUPPORT'] == 'disable':
+        topology_type = 'nlb'
+
     config_url = utl.make_config_url(asa.get_instance_az(), user_input['AZ_LIST'], user_input['ConfigFileUrl'])
     local_file_name = 'Configuration.txt'
     asav_local_file_path = 'disk0:' + local_file_name
 
     if asa.run_copy_file_running_config(config_url, asav_local_file_path) == "SUCCESS":
         if asa.verify_configuration_file_copy(local_file_name) == "SUCCESS":
-            if asa.verify_at_least_one_nat_policy_present() == "SUCCESS":
+            if (user_input['GENEVE_SUPPORT']=='enable') or (user_input['GENEVE_SUPPORT']=='disable' and asa.verify_at_least_one_nat_policy_present() == "SUCCESS"):
                 asa.create_instance_tags('ASAvConfigurationStatus', 'DONE')
                 logger.info("Configuration has been applied!")
                 return 'SUCCESS'
@@ -452,16 +440,26 @@ def execute_vm_license_first(asa):
                 logger.info("ASAv is found with AWS Licensing type")
                 asa.create_instance_tags('ASAvLicenseStatus', 'LICENSED')
                 return 'SUCCESS'
+        time.sleep(30)    
     elif user_input['ASA_LICENSE_TYPE'] == 'BYOL':
         logger.info("Found BYOL Licensing type in User Input")
         logger.info("Verifying License status inside the device")
         if asa.verify_asa_smart_licensing_enabled() == 'SUCCESS':
             if asa.verify_asav_byol_licensed() == 'SUCCESS' and asa.verify_asa_license_authorized() == 'SUCCESS':
-                logger.info("ASAv is found with Smart Licensing type")
+                logger.info("ASAv registered with Smart Licensing !!")
                 asa.create_instance_tags('ASAvLicenseStatus', 'LICENSED')
                 return 'SUCCESS'
-        # wait 15 seconds
-        time.sleep(1 * 15)
+            ## register_smart_license implementable only if license token passed from template
+            if user_input['SMART_LIC_TOKEN']:
+                if asa.register_smart_license(user_input['SMART_LIC_TOKEN']) == 'SUCCESS': 
+                    logger.info('Licensing Commands run , checking if Smart-license registered and authorized')
+                    time.sleep(30)
+                    if asa.verify_asav_byol_licensed() == 'SUCCESS' and asa.verify_asa_license_authorized() == 'SUCCESS':
+                        logger.info("ASAv registered successfully with Smart Licensing !!")
+                        asa.create_instance_tags('ASAvLicenseStatus', 'LICENSED')
+                        return 'SUCCESS'
+        # wait 30 seconds
+        time.sleep(30)
     else:
         logger.info("Invalid user input for ASAv License Type")
 
@@ -523,7 +521,7 @@ def execute_instance_tg_health_doctor():
     now = datetime.now(timezone.utc)
     killable_asa_instance = []
     try:
-        unhealthy_ip_targets = elb_client.get_unhealthy_ip_targets(user_input['LB_ARN_OUTSIDE'])
+        unhealthy_ip_targets = elb_client.get_unhealthy_ip_targets(user_input['LB_ARN'])
         # logger.info("IPs: " + str(unhealthy_ip_targets) + " found unhealthy!")
     except Exception as e:
         logger.debug("Exception occurred: {}".format(repr(e)))
@@ -542,7 +540,7 @@ def execute_instance_tg_health_doctor():
                 except Exception as e:
                     logger.info("Exception occurred {}".format(repr(e)))
                     logger.info("Removing IP: " + str(unhealthy_ip_targets[i]) + " as no associated Instance found!")
-                    elb_client.deregister_ip_target_from_lb(user_input['LB_ARN_OUTSIDE'], unhealthy_ip_targets[i])
+                    elb_client.deregister_ip_target_from_lb(user_input['LB_ARN'], unhealthy_ip_targets[i])
                     utl.put_line_in_log('Instance Doctor finished', 'dot')
                     return
                 for val in instance['Tags']:
@@ -559,7 +557,7 @@ def execute_instance_tg_health_doctor():
                 else:
                     logger.info(unhealthy_instance_id + " is not part of " + str(user_input['AutoScaleGrpName']))
                     logger.info("Removing IP: " + str(unhealthy_ip_targets[i]) + " as it is not of an ASAv VM!")
-                    elb_client.deregister_ip_target_from_lb(user_input['LB_ARN_OUTSIDE'], unhealthy_ip_targets[i])
+                    elb_client.deregister_ip_target_from_lb(user_input['LB_ARN'], unhealthy_ip_targets[i])
                     utl.put_line_in_log('Instance Doctor finished', 'dot')
                     return
     except Exception as e:
