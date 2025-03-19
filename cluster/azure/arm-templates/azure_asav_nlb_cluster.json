@@ -1,0 +1,1074 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceNamePrefix": {
+            "type": "string",
+            "defaultValue": "asav",
+            "minLength": 3,
+            "maxLength": 10,
+            "metadata": {
+                "description": "Prefix used in resource names created by this template(Use only lowercase letters)"
+            }
+        },
+        "virtualNetworkRg": {
+            "type": "string",
+            "defaultValue": "cisco-virtualnet-rg",
+            "metadata": {
+                "description": "Virtual network resource group name"
+            }
+        },
+        "virtualNetworkName": {
+            "type": "string",
+            "defaultValue": "cisco-virtualnet",
+            "metadata": {
+                "description": "Virtual network name"
+            }
+        },
+        "virtualNetworkCidr": {
+            "defaultValue": "192.168.0.0/16",
+            "type": "string",
+            "metadata": {
+                "description": "The Virtual Network address space"
+            }
+        },
+       "mgmtSubnet": {
+            "type": "string",
+            "defaultValue": "mgmt",
+            "metadata": {
+                "description": "Management subnet name"
+            }
+        },
+        "insideSubnet": {
+            "type": "string",
+            "defaultValue": "inside",
+            "metadata": {
+                "description": "Inside subnet name."
+            }
+        },
+        "insideNetworkGatewayIp": {
+            "type": "string",
+            "defaultValue": "192.168.2.1",
+            "metadata": {
+                "description": "Inside Subnet Gateway IP"
+            }
+        },
+        "internalLoadBalancerIP": {
+            "type": "string",
+            "defaultValue": "192.168.2.4",
+            "metadata": {
+                "description": "Internal LB IP in inside subnet."
+            }
+        },
+        "outsideSubnet": {
+            "type": "string",
+            "defaultValue": "outside",
+            "metadata": {
+                "description": "Outside subnet name"
+            }
+        },
+        "outsideNetworkGatewayIp": {
+            "type": "string",
+            "defaultValue": "192.168.3.1",
+            "metadata": {
+                "description": "Outside Subnet Gateway IP"
+            }
+        },
+        "cclSubnet": {
+            "type": "string",
+            "defaultValue": "ccl",
+            "metadata": {
+                "description": "Outside subnet name"
+            }
+        },
+        "cclSubnetStartAddr": {
+            "defaultValue": "192.168.4.4",
+            "type": "string",
+            "metadata": {
+                "description": "CCL Subnet Start Address"
+            }
+        },
+        "cclSubnetEndAddr": {
+            "defaultValue": "192.168.4.30",
+            "type": "string",
+            "metadata": {
+                "description": "CCL Subnet End Address"
+            }
+        },
+        "functionHostingPlan": {
+            "type": "string",
+            "defaultValue": "consumption",
+            "allowedValues": [
+                "consumption",
+                "premium"
+            ],
+            "metadata": {
+                "description": "Deployment plan (consumption: uses the consumption hosting plan, premium: uses the premium hosting plan). Please refer user guide for details for details and pricing."
+            }
+        },
+        "functionAppSubnet": {
+            "type": "string",
+            "defaultValue": "function-app-subnet",
+            "metadata": {
+                "description": "Function App subnet name. Required only if the functionHostingPlan is 'premium'."
+            }
+        },
+        "functionAppSubnetCIDR": {
+            "defaultValue": "192.168.4.0/24",
+            "type": "string",
+            "metadata": {
+                "description": "The subnet CIDR for the function app. Required only if the functionHostingPlan is 'premium'."
+            }
+        },
+        "healthCheckPortNumber": {
+            "defaultValue": "7777",
+            "type": "string",
+            "metadata": {
+                "description": "ASAv health check port number. Recommended to use port numbers other than standard ports 22, 23, 80 and 443."
+            }
+        },
+        "clusterGroupName": {
+            "type": "string",
+            "defaultValue": "asav-cluster",
+            "metadata": {
+                "description": "Cluster Group Name"
+            }
+        },
+        "asaLicensingSku": {
+          "type" : "string",
+          "defaultValue" : "asav-azure-byol",
+          "allowedValues" : [
+              "asav-azure-byol",
+              "asav-azure-payg"
+          ],
+          "metadata" : {
+              "description" : "Licensing model (asav-azure-byol : Bring-your-own-license, asav-azure-payg : Pay-as-you-go)"
+          }
+        },
+        "softwareVersion": {
+            "type": "string",
+            "defaultValue": "9231.0.0",
+            "allowedValues": [
+                "9231.0.0",
+                "92211.0.0",
+                "92037.0.0"
+            ],
+            "metadata": {
+                "description": "ASA Software version to use."
+            }
+        },
+        "vmSize": {
+            "type" : "string",
+            "defaultValue" : "Standard_D4_v2",
+            "allowedValues" : [
+                "Standard_D3_v2",
+                "Standard_D4_v2",
+                "Standard_D5_v2",
+                "Standard_D8_v3",
+                "Standard_D16_v3",
+                "Standard_D8s_v3",
+                "Standard_D16s_v3",
+                "Standard_DS3_v2",
+                "Standard_DS4_v2",
+                "Standard_DS5_v2",
+                "Standard_F4",
+                "Standard_F8",
+                "Standard_F16",
+                "Standard_F4s",
+                "Standard_F8s",
+                "Standard_F16s",
+                "Standard_F8s_v2",
+                "Standard_F16s_v2"
+            ],
+            "metadata": {
+                "description": "Size of the Virtual Machine"
+            }
+        },
+        "asaAdminUserName": {
+            "type": "string",
+            "defaultValue": "cisco",
+            "metadata": {
+                "description": "Username for primary account on the virtual machine (used only for vm management). This is not the admin username and 'admin' is reserved."
+            }
+        },
+        "asaAdminUserPassword": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Password for ASAv 'admin' user (Passwords must be 12 to 72 characters long, must have : lowercase, uppercase, numbers & special characters and must have no more than 2 repeating characters)"
+            }
+        },
+        "scaleInThreshold": {
+            "type": "string",
+            "defaultValue": "10",
+            "metadata": {
+                "description": "Scale-IN threshold in %"
+            }
+        },
+        "scaleOutThreshold": {
+            "type": "string",
+            "defaultValue": "80",
+            "metadata": {
+                "description": "Scale-OUT threshold in %"
+            }
+        },
+        "asavClusterSize": {
+            "type": "int",
+            "minValue": 1,
+            "maxValue": 16,
+            "defaultValue": 4,
+            "metadata": {
+                "description": "Number of ASAv instances in the Scale Set"
+            }
+        },
+        "metricsAverageDuration": {
+            "type": "string",
+            "defaultValue": "1",
+            "allowedValues": [
+                "1",
+                "5",
+                "15",
+                "30"
+            ],
+            "metadata": {
+                "description": "Duration in minutes for which metrics samples are collected and averaged"
+            }
+        },
+        "initDeploymentMode": {
+            "type": "string",
+            "defaultValue": "BULK",
+            "allowedValues": [
+                "BULK",
+                "STEP"
+            ],
+            "metadata": {
+                "description": "Initial deployment mode BULK/STEP"
+            }
+        },
+        "scalingPolicy": {
+            "type": "string",
+            "defaultValue": "POLICY-2",
+            "allowedValues": [
+                "POLICY-1",
+                "POLICY-2"
+            ],
+            "metadata": {
+                "description": "Scaling Policy.. Refer user guide for details"
+            }
+        },
+        "licenseThroughput": {
+            "type": "string",
+            "defaultValue": "1G",
+            "allowedValues": [
+                "100M",
+                "1G",
+                "2G",
+                "10G",
+                "20G"
+            ],
+            "metadata": {
+                "description": "The Smartlicense entitlement tier for the ASAv."
+            }
+        },
+        "smartLicenseToken": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Smartlicense token for registering the ASAv."
+            }
+        },
+        "asavConfigFileUrl": {
+          "type": "string",
+          "defaultValue" : "",
+          "metadata": {
+            "description": "Optional ASAv configuration file path : example - https://path_to_asav_config_file/config_file. Make sure the configuration file is accessible from the ASAv."
+          }
+        }
+    },
+    "variables": {
+        "networkApiVersion": "2023-09-01",
+        "webApiVersion": "2022-09-01",
+        "logicAppName": "[concat(parameters('resourceNamePrefix'),'-logic-app')]",
+        "elbName":      "[concat(parameters('resourceNamePrefix'),'-elb')]",
+        "ilbName":      "[concat(parameters('resourceNamePrefix'),'-ilb')]",
+        "dataSecGrp":   "[concat(parameters('resourceNamePrefix'),'-dataIntfSecGrp')]",
+        "mgmtSecGrp":   "[concat(parameters('resourceNamePrefix'),'-mgmtIntfSecGrp')]",
+        "elbId":        "[resourceId('Microsoft.Network/loadBalancers',variables('elbName'))]",
+        "elbPublicIpName":  "[concat(variables('elbName'),'-public-ip')]",
+        "ilbId":        "[resourceId('Microsoft.Network/loadBalancers',variables('ilbName'))]",
+        "vnetId":       "[resourceId(parameters('virtualNetworkRg'),'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]",
+        "mgmtSubnetId": "[concat(variables('vnetID'),'/subnets/', parameters('mgmtSubnet'))]",
+        "insideSubnetId":   "[concat(variables('vnetID'),'/subnets/', parameters('insideSubnet'))]",
+        "outsideSubnetId":  "[concat(variables('vnetID'),'/subnets/', parameters('outsideSubnet'))]",
+        "cclSubnetId":  "[concat(variables('vnetID'),'/subnets/', parameters('cclSubnet'))]",
+        "functionAppName":"[concat(parameters('resourceNamePrefix'),'-function-app')]",
+        "functionAppId":    "[concat(resourceGroup().id,'/providers/','Microsoft.Web/sites/', variables('functionAppName'))]",
+        "functionWorkerRuntime":    "python",
+        "appInsightsName":"[concat(parameters('resourceNamePrefix'),'-appinsight')]",
+        "appInsightsSourceName": "IbizaWebAppExtensionCreate",
+        "hostingPlanName": "[concat(parameters('resourceNamePrefix'),'-hostingPlan')]",
+        "functionHostingPlanType": "[parameters('functionHostingPlan')]",
+        "publicIpAddressName": "[concat(parameters('resourceNamePrefix'),'-outbound-IP')]",
+        "natGatewayName": "[concat(parameters('resourceNamePrefix'),'-nat-gw')]",
+        "functionAppSubnetId": "[resourceId(parameters('virtualNetworkRg'), 'Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('functionAppSubnet'))]",
+        "functionAppSubnetDeployment": "[concat(parameters('resourceNamePrefix'),'-functionAppSubnetDeployment')]",
+        "storageAccountName":   "[concat(parameters('resourceNamePrefix'), uniquestring(resourceGroup().id))]",
+        "storageAccountid": "[concat(resourceGroup().id,'/providers/','Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]",
+        "vmssName":     "[concat(parameters('resourceNamePrefix'),'-vmss')]",
+        "vmssVmMgmtNicName":    "mgmtNic",
+        "vmssVmInsideNicName":  "insideNic",
+        "vmssVmOutsideNicName": "outsideNic",
+        "vmssVmCclNicName": "cclNic",
+        "idleTimeoutInMinutes": 30,
+        "systopicname": "[concat(parameters('resourceNamePrefix'),'-systopic')]",
+        "queuename":    "resourceactionsuccessqueue",
+        "esubname":     "[concat(parameters('resourceNamePrefix'),'-esub')]",
+        "role1":        "[guid(resourceGroup().id,subscription().subscriptionId,'role1')]",
+        "role2":        "[guid(resourceGroup().id,subscription().subscriptionId,'role2')]",
+        "role3":        "[guid(resourceGroup().id,subscription().subscriptionId,'role3')]",
+        "sku":              "[parameters('asaLicensingSku')]",
+        "publisher":        "cisco",
+        "offer":            "cisco-asav",
+        "osUserName": "waagentuser",
+        "smartLicenseRegister": "[if(and(not(equals(parameters('smartLicenseToken'), '')), equals(parameters('asaLicensingSku'), 'asav-azure-byol')), true, false)]",
+        "performLicenseCheck": "[if(or(variables('smartLicenseRegister'), equals(parameters('asaLicensingSku'), 'asav-azure-payg')), true, false)]",
+        "userData": "[concat('cluster interface-mode individual force\npolicy-map global_policy\nclass inspection_default\nno inspect h323 h225\nno inspect h323 ras\nno inspect rtsp\nno inspect skinny\n\ninterface Management0/0\nmanagement-only\nnameif management\nsecurity-level 100\nip address dhcp setroute\nno shutdown\n\ninterface GigabitEthernet0/0\nnameif inside\nsecurity-level 100\nip address dhcp\nno shutdown\n\ninterface GigabitEthernet0/1\nnameif outside\nsecurity-level 0\nip address dhcp\nno shutdown\n\ninterface GigabitEthernet0/2\nnve-only cluster\nnameif ccl_link\nsecurity-level 0\nip address dhcp\nno shutdown\n\ncrypto key generate rsa modulus 2048\nssh 0 0 management\nssh 0 0 outside\nssh timeout 60\nssh version 2\naaa authentication ssh console LOCAL\naaa authentication listener http outside port ', parameters('healthCheckPortNumber'),'\n\ninterface vni1\ndescription ClusterInterface\nsegment-id 1\nvtep-nve 1\n\nroute outside 0.0.0.0 0.0.0.0 ', parameters('outsideNetworkGatewayIp'),' 2\nroute inside 0.0.0.0 0.0.0.0 ', parameters('insideNetworkGatewayIp'),' 3\n\nobject network ccl_link\nrange ', parameters('cclSubnetStartAddr'), ' ', parameters('cclSubnetEndAddr'),'\nobject-group network cluster_group\nnetwork-object object ccl_link\n\nnve 1\nencapsulation vxlan\nsource-interface ccl_link\npeer-group cluster_group\n\nmtu inside 1300\nmtu outside 1300\nmtu ccl_link 1454\n\nsysopt connection tcpmss 1200\n\nsame-security-traffic permit inter-interface\nsame-security-traffic permit intra-interface\n\nusername ', parameters('asaAdminUserName'), ' password ', parameters('asaAdminUserPassword'), ' privilege 15\nenable password ', parameters('asaAdminUserPassword'), ' level 15\n\ndns domain-lookup management\ndns server-group DefaultDNS\nname-server 8.8.8.8 management\n\n', if(equals(variables('performLicenseCheck'), true), concat('\ncall-home\nprofile license\ndestination transport-method http\ndestination address http https://tools.cisco.com/its/service/oddce/services/DDCEService\ndebug menu license 25 production\nlicense smart\nfeature tier standard\nthroughput level ', parameters('licenseThroughput'), '\nlicense smart register idtoken ', parameters('smartLicenseToken')), ''), '\nwrite memory\n')]"
+    },
+    "resources": [
+        {
+            "name": "[variables('LogicAppName')]",
+            "type": "Microsoft.Logic/workflows",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2019-05-01",
+            "tags": {
+                "displayName": "LogicApp"
+            },
+            "properties": {
+                "state": "Disabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "actions": {},
+                    "contentVersion": "1.0.0.0",
+                    "outputs": {},
+                    "parameters": {},
+                    "triggers": {
+                        "manual": {
+                            "inputs": {
+                                "schema": {}
+                            },
+                            "kind": "Http",
+                            "type": "Request"
+                        }
+                    }
+                },
+                "parameters": {}
+            }
+        },
+        {
+            "apiVersion": "[variables('networkApiVersion')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "name": "[variables('mgmtSecGrp')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "allow-ssh",
+                        "properties": {
+                            "description": "Allows SSH access to Azure function app.",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "sourceAddressPrefix": "[if(equals(variables('functionHostingPlanType'), 'premium'), reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpAddressName'))).ipAddress, concat('AzureCloud.', resourceGroup().location))]",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "allow-https",
+                        "properties": {
+                            "description": "Allow HTTPS access from anywhere. Modify this as applicable.",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "443",
+                            "sourceAddressPrefix": "[if(equals(variables('functionHostingPlanType'), 'premium'), reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpAddressName'))).ipAddress, concat('AzureCloud.', resourceGroup().location))]",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 101,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpAddressName'))]"
+            ]
+        },
+        {
+            "apiVersion": "[variables('networkApiVersion')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "name": "[variables('dataSecGrp')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "allow-https",
+                        "properties": {
+                            "description": "Allow HTTPS access from anywhere. Modify this as applicable",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "443",
+                            "sourceAddressPrefix": "Internet",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2023-01-01",
+            "name": "[variables('storageAccountName')]",
+            "location": "[resourceGroup().location]",
+            "kind": "StorageV2",
+            "sku": {
+                "name": "Standard_LRS"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/queueServices/queues",
+            "apiVersion": "2023-01-01",
+            "name": "[concat(variables('storageAccountName'), '/default/', 'asavdetails')]",
+            "properties": {
+                "metadata": {}
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+            ]
+        },
+        {
+            "apiVersion": "2020-02-02",
+            "name": "[variables('appInsightsName')]",
+            "type": "Microsoft.Insights/components",
+            "kind": "web",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', variables('functionAppName'))]": "Resource"
+            },
+            "properties": {
+                "Application_Type": "web",
+                "ApplicationId": "[variables('appInsightsName')]",
+                "Request_Source": "[variables('appInsightsSourceName')]"
+            }
+        },
+        {
+            "condition": "[equals(variables('functionHostingPlanType'), 'premium')]",
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "[variables('webApiVersion')]",
+            "name": "[variables('hostingPlanName')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "Tier": "ElasticPremium",
+                "Name": "EP1"
+            },
+            "kind": "linux",
+            "properties": {
+                "reserved": true,
+                "maximumElasticWorkerCount": "20",
+                "zoneRedundant": false
+            }
+        },
+        {
+            "condition": "[equals(variables('functionHostingPlanType'), 'premium')]",
+            "apiVersion": "[variables('networkApiVersion')]",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[variables('publicIpAddressName')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "Static",
+                "publicIPAddressVersion": "IPv4"
+            }
+        },
+        {
+            "condition": "[equals(variables('functionHostingPlanType'), 'premium')]",
+            "apiVersion": "[variables('networkApiVersion')]",
+            "type": "Microsoft.Network/natGateways",
+            "name": "[variables('natGatewayName')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Standard"
+            },
+            "properties": {
+                "publicIPAddresses": [
+                    {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpAddressName'))]"
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpAddressName'))]"
+            ]
+        },
+        {
+            "condition": "[equals(variables('functionHostingPlanType'), 'premium')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2024-03-01",
+            "name": "[variables('functionAppSubnetDeployment')]",
+            "resourceGroup": "[parameters('virtualNetworkRg')]",
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {},
+                    "variables": {},
+                    "resources": [
+                        {
+                            "type": "Microsoft.Network/virtualNetworks/subnets",
+                            "apiVersion": "[variables('networkApiVersion')]",
+                            "name": "[concat(parameters('virtualNetworkName') , '/', parameters('functionAppSubnet'))]",
+                            "properties": {
+                                "delegations": [
+                                    {
+                                        "name": "delegation",
+                                        "properties": {
+                                            "serviceName": "Microsoft.Web/serverfarms",
+                                            "actions": [
+                                                "Microsoft.Network/virtualNetworks/subnets/action"
+                                            ]
+                                        },
+                                        "type": "Microsoft.Network/virtualNetworks/subnets/delegations"
+                                    }
+                                ],
+                                "addressPrefixes": [
+                                    "[parameters('functionAppSubnetCIDR')]"
+                                ],
+                                "natGateway": {
+                                    "id": "[resourceId('Microsoft.Network/natGateways', variables('natGatewayName'))]"
+                                },
+                                "serviceAssociationLinks": [
+                                    {
+                                        "name": "AppServiceLink",
+                                        "type": "Microsoft.Network/virtualNetworks/subnets/serviceAssociationLinks",
+                                        "properties": {
+                                            "linkedResourceType": "Microsoft.Web/serverfarms",
+                                            "link": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+                "[resourceId('Microsoft.Network/natGateways', variables('natGatewayName'))]"
+            ]
+        },
+        {
+            "apiVersion": "[variables('webApiVersion')]",
+            "type": "Microsoft.Web/sites",
+            "name": "[variables('functionAppName')]",
+            "location": "[resourceGroup().location]",
+            "kind": "functionapp,linux",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+                "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+                "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+                "[variables('functionAppSubnetDeployment')]"
+            ],
+            "properties": {
+                "enabled": true,
+                "reserved": true,
+                "serverFarmId": "[if(equals(variables('functionHostingPlanType'), 'premium'), resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName')), json('null'))]",
+                "virtualNetworkSubnetId": "[if(equals(variables('functionHostingPlanType'), 'premium'), variables('functionAppSubnetId'), json('null'))]",
+                "vnetRouteAllEnabled": true,
+                "siteConfig": {
+                    "linuxFxVersion": "Python|3.9",
+                    "appSettings": [
+                        {
+                            "name": "AzureWebJobsDashboard",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "AzureWebJobsStorage",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTSHARE",
+                            "value": "[toLower(variables('functionAppName'))]"
+                        },
+                        {
+                            "name": "FUNCTION_APP_NAME",
+                            "value": "[variables('functionAppName')]"
+                        },
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(resourceId('microsoft.insights/components/', variables('appInsightsName')), '2015-05-01').InstrumentationKey]"
+                        },
+                        {
+                            "name": "FUNCTIONS_WORKER_RUNTIME",
+                            "value": "[variables('functionWorkerRuntime')]"
+                        },
+                        {
+                            "name": "FUNCTIONS_EXTENSION_VERSION",
+                            "value": "~4"
+                        },
+                        {
+                            "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+                            "value": "true"
+                        },
+                        {
+                            "name": "ENABLE_ORYX_BUILD",
+                            "value": "true"
+                        },
+                        {
+                           "name": "RESOURCE_PREFIX",
+                           "value": "[parameters('resourceNamePrefix')]"
+                        },
+                        {
+                            "name": "ANY_IPV4_NAME",
+                            "value": "[concat(parameters('resourceNamePrefix'),'-anyipv4')]"
+                        },
+                        {
+                            "name": "AZURE_UTILITY_IP",
+                            "value": "168.63.129.16"
+                        },
+                        {
+                            "name": "AZURE_UTILITY_IP_NAME",
+                            "value": "azure-utility-ip"
+                        },
+                        {
+                            "name": "ASA_PASSWORD",
+                            "value": "[parameters('asaAdminUserPassword')]"
+                        },
+                        {
+                            "name": "ASA_USERNAME",
+                            "value": "[parameters('asaAdminUserName')]"
+                        },
+                        {
+                            "name": "CLUSTER_START_ADDRESS",
+                            "value": "[parameters('cclSubnetStartAddr')]"
+                        },
+                        {
+                            "name": "CLUSTER_END_ADDRESS",
+                            "value": "[parameters('cclSubnetEndAddr')]"
+                        },
+                        {
+                            "name": "SET_UNIQUE_HOST_NAME",
+                            "value": "YES"
+                        },
+                        {
+                            "name": "OUTSIDE_NETWORK_GATEWAY",
+                            "value": "[parameters('outsideNetworkGatewayIp')]"
+                        },
+                        {
+                            "name": "SCALE_IN_THRESHOLD",
+                            "value": "[parameters('scaleInThreshold')]"
+                        },
+                        {
+                            "name": "SCALE_OUT_THRESHOLD",
+                            "value": "[parameters('scaleOutThreshold')]"
+                        },
+                        {
+                            "name": "ASA_COUNT",
+                            "value": "[parameters('asavClusterSize')]"
+                        },
+                        {
+                            "name": "MAX_ASA_COUNT",
+                            "value": "16"
+                        },
+                        {
+                            "name": "MIN_ASA_COUNT",
+                            "value": "[parameters('asavClusterSize')]"
+                        },
+                        {
+                            "name": "INITIAL_DEPLOYMENT_MODE",
+                            "value": "[parameters('initDeploymentMode')]"
+                        },
+                        {
+                            "name": "SCALING_POLICY",
+                            "value": "[parameters('scalingPolicy')]"
+                        },
+                        {
+                            "name": "SAMPLING_TIME_MIN",
+                            "value": "[parameters('metricsAverageDuration')]"
+                        },
+                        {
+                            "name": "MNGT_PUBLIC_IP_NAME",
+                            "value": "mgmtPublicIP"
+                        },
+                        {
+                            "name": "NETWORK_CIDR",
+                            "value": "[parameters('virtualNetworkCidr')]"
+                        },
+                        {
+                            "name": "NETWORK_NAME",
+                            "value": "[concat(parameters('resourceNamePrefix'),'-vnet')]"
+                        },
+                        {
+                            "name": "RESOURCE_GROUP_NAME",
+                            "value": "[resourceGroup().name]"
+                        },
+          			    {
+                            "name": "SUBSCRIPTION_ID",
+                            "value": "[subscription().subscriptionId]"
+                        },
+                        {
+                            "name": "VMSS_NAME",
+                            "value": "[variables('vmssName')]"
+                        },
+                        {
+                            "name": "MNGT_IP_CONFIG_NAME",
+                            "value": "myIpConfig"
+                        },
+                        {
+                            "name": "MNGT_NET_INTERFACE_NAME",
+                            "value": "[variables('vmssVmMgmtNicName')]"
+                        },
+                        {
+                          "name": "ASAV_CONFIG_FILE",
+                          "value": "[parameters('asavConfigFileUrl')]"
+                        },
+                        {
+                            "name": "PERFORM_LICENSE_CHECK",
+                            "value": "[if(equals(variables('performLicenseCheck'), true), 'YES', 'NO')]"
+                        },
+                        {
+                            "name": "DELETE_FAULTY_ASA",
+                            "value": "YES"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "[variables('webApiVersion')]",
+            "name": "[variables('elbPublicIpName')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Standard"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "Static",
+                "dnsSettings": {
+                    "domainNameLabel": "[variables('elbPublicIpName')]"
+                },
+                "idleTimeoutInMinutes": "[variables('idleTimeoutInMinutes')]"
+            }
+        },
+        {
+            "type": "Microsoft.Network/loadBalancers",
+            "apiVersion": "[variables('networkApiVersion')]",
+            "name": "[variables('elbName')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Standard"
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Network/publicIPAddresses/', variables('elbPublicIpName'))]"
+            ],
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "LoadBalancerFrontEnd",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses/', variables('elbPublicIpName'))]"
+                            }
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "backendPool"
+                    }
+                ],
+                "loadBalancingRules": [
+                    {
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "Id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('elbName')), '/frontendIpConfigurations/LoadBalancerFrontend')]"
+                            },
+                            "backendAddressPool": {
+                                "Id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('elbName')), '/backendAddressPools/BackendPool')]"
+                            },
+                            "probe": {
+                                "Id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('elbName')), '/probes/lbprobe')]"
+                            },
+                            "protocol": "TCP",
+                            "frontendPort": "80",
+                            "backendPort": "80",
+                            "idleTimeoutInMinutes": "[variables('idleTimeoutInMinutes')]"
+                        },
+                        "Name": "lbrule"
+                    }
+                ],
+                "probes": [
+                    {
+                        "properties": {
+                            "protocol": "Tcp",
+                            "port": "[parameters('healthCheckPortNumber')]",
+                            "intervalInSeconds": 5,
+                            "numberOfProbes": 2
+                        },
+                        "name": "lbprobe"
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/loadBalancers",
+            "apiVersion": "[variables('networkApiVersion')]",
+            "name": "[variables('ilbName')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Standard"
+            },
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "LoadBalancerFrontEnd",
+                        "properties": {
+                            "subnet": {
+                                "id": "[variables('insideSubnetId')]"
+                            },
+                            "privateIPAddress": "[parameters('internalLoadBalancerIP')]",
+                            "privateIPAllocationMethod": "Static"
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "backendPool"
+                    }
+                ],
+                "loadBalancingRules": [
+                    {
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "Id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('ilbName')), '/frontendIpConfigurations/LoadBalancerFrontend')]"
+                            },
+                            "backendAddressPool": {
+                                "Id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('ilbName')), '/backendAddressPools/BackendPool')]"
+                            },
+                            "probe": {
+                                "Id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('ilbName')), '/probes/lbprobe')]"
+                            },
+                            "protocol": "All",
+                            "frontendPort": 0,
+                            "backendPort": 0,
+                            "idleTimeoutInMinutes": "[variables('idleTimeoutInMinutes')]"
+                        },
+                        "Name": "lbrule"
+                    }
+                ],
+                "probes": [
+                    {
+                        "properties": {
+                            "protocol": "Tcp",
+                            "port": "[parameters('healthCheckPortNumber')]",
+                            "intervalInSeconds": 5,
+                            "numberOfProbes": 2
+                        },
+                        "name": "lbprobe"
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachineScaleSets",
+            "apiVersion": "[variables('networkApiVersion')]",
+            "name": "[variables('vmssName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/loadBalancers/', variables('elbName'))]",
+                "[concat('Microsoft.Network/loadBalancers/', variables('ilbName'))]",
+                "[concat('Microsoft.Network/networkSecurityGroups/',variables('mgmtSecGrp'))]",
+                "[concat('Microsoft.Network/networkSecurityGroups/',variables('dataSecGrp'))]"
+            ],
+            "sku": {
+                "name": "[parameters('vmSize')]",
+                "capacity": 0
+            },
+            "zones": [
+                "1",
+                "2",
+                "3"
+            ],
+            "plan": {
+                "name": "[variables('sku')]",
+                "publisher": "[variables('publisher')]",
+                "product": "[variables('offer')]"
+            },
+            "properties": {
+                "singlePlacementGroup": false,
+                "upgradePolicy": {
+                    "mode": "Manual"
+                },
+                "virtualMachineProfile": {
+                    "storageProfile": {
+                        "imageReference": {
+                            "publisher": "[variables('publisher')]",
+                            "offer": "[variables('offer')]",
+                            "sku": "[variables('sku')]",
+                            "version": "[parameters('softwareVersion')]"
+                        }
+                    },
+                    "osProfile": {
+                        "computerNamePrefix": "[variables('vmssName')]",
+                        "adminUsername": "[variables('osUserName')]",
+                        "adminPassword": "[parameters('asaAdminUserPassword')]"
+                    },
+                    "diagnosticsProfile": {
+                        "bootDiagnostics": {
+                            "enabled": true,
+                            "storageUri": "[concat('https://',variables('storageAccountName'),'.blob.core.windows.net')]"
+                        }
+                    },
+                    "networkProfile": {
+                        "networkInterfaceConfigurations": [
+                            {
+                                "name": "[variables('vmssVmMgmtNicName')]",
+                                "properties": {
+                                    "primary": true,
+                                    "networkSecurityGroup": {
+                                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('mgmtSecGrp'))]"
+                                    },
+                                    "ipConfigurations": [
+                                        {
+                                            "name": "myIpConfig",
+                                            "properties": {
+                                                "subnet": {
+                                                    "id": "[variables('mgmtSubnetId')]"
+                                                },
+                                                "publicipaddressconfiguration": {
+                                                    "name": "mgmtPublicIP",
+                                                    "properties": {
+                                                        "idleTimeoutInMinutes": "[variables('idleTimeoutInMinutes')]"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "name": "[variables('vmssVmInsideNicName')]",
+                                "properties": {
+                                    "primary": false,
+                                    "enableAcceleratedNetworking": true,
+                                    "enableIPForwarding": true,
+                                    "networkSecurityGroup": {
+                                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('dataSecGrp'))]"
+                                    },
+                                    "ipConfigurations": [
+                                        {
+                                            "name": "myIpConfig",
+                                            "properties": {
+                                                "subnet": {
+                                                    "id": "[variables('insideSubnetId')]"
+                                                },
+                                                "loadBalancerBackendAddressPools": [
+                                                    {
+                                                        "id": "[concat( variables('ilbId'), '/backendAddressPools/backendPool')]"
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "name": "[variables('vmssVmOutsideNicName')]",
+                                "properties": {
+                                    "primary": false,
+                                    "enableAcceleratedNetworking": true,
+                                    "enableIPForwarding": true,
+                                    "networkSecurityGroup": {
+                                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('dataSecGrp'))]"
+                                    },
+                                    "ipConfigurations": [
+                                        {
+                                            "name": "myIpConfig",
+                                            "properties": {
+                                                "subnet": {
+                                                    "id": "[variables('outsideSubnetId')]"
+                                                },
+                                                "loadBalancerBackendAddressPools": [
+                                                    {
+                                                        "id": "[concat( variables('elbId'), '/backendAddressPools/backendPool')]"
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "name": "[variables('vmssVmCclNicName')]",
+                                "properties": {
+                                    "primary": false,
+                                    "enableAcceleratedNetworking": true,
+                                    "enableIPForwarding": true,
+                                    "ipConfigurations": [
+                                        {
+                                            "name": "myIpConfig",
+                                            "properties": {
+                                                "subnet": {
+                                                    "id": "[variables('cclSubnetId')]"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "userData": "[base64(variables('userData'))]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2022-04-01",
+            "name": "[variables('role1')]",
+            "dependsOn": [
+                "[resourceID('Microsoft.Compute/virtualMachineScaleSets', variables('vmssName'))]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2016-03-01', 'Full').identity.principalId]"
+            }
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2022-04-01",
+            "name": "[variables('role2')]",
+            "dependsOn": [
+                "[resourceID('Microsoft.Compute/virtualMachineScaleSets', variables('vmssName'))]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')]",
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2016-03-01', 'Full').identity.principalId]"
+            }
+        }
+    ]
+}
