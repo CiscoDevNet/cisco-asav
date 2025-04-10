@@ -6,7 +6,7 @@ cloud using Azure, Amazon Web Services (AWS), Google Cloud Platform (GCP). Only 
 supported. <br>
 
 ## Deploy the Cluster in Azure
-You can use the cluster with the Azure Gateway Load Balancer. To enable scaling up virtual machine workloads during traffic spikes and scaling down during off-peak hours to optimize costs, cluster nodes must scale automatically alongside the applications. This capability not only ensures application security but also reduces infrastructure costs by eliminating the need for over-provisioning security to accommodate peak demands.
+You can use the cluster with the Azure Gateway Load Balancer or a Network Load Balancer. To enable scaling up virtual machine workloads during traffic spikes and scaling down during off-peak hours to optimize costs, cluster nodes must scale automatically alongside the applications. This capability not only ensures application security but also reduces infrastructure costs by eliminating the need for over-provisioning security to accommodate peak demands.
 
 **Starting with release 9.23**, ASAv clustering now supports dynamic auto-scaling by default. To deploy the ASAv cluster or ASAv cluster autoscale, use the customized Azure Resource Manager (ARM) templates which deploys a Virtual Machine Scale Set along with required resources.
 
