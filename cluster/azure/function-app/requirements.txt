@@ -1,0 +1,9 @@
+azure-functions==1.8.0
+azure-mgmt-compute==23.1.0
+azure-mgmt-resource==20.0.0
+azure-mgmt-network==19.3.0
+azure-mgmt-monitor==3.1.0
+azure-identity==1.7.1
+azure-cli-core==2.30.0
+azure-storage-queue==12.1.6
+paramiko==2.11.0

@@ -28,10 +28,16 @@ A cluster provides all the convenience of a single device (management, integrati
 * ASAv cluster is supported on AWS from 9.19 release.
 * ASAv cluster is supported on Azure from 9.20.2 release.
 
+### Cluster Autoscale
+ASA 9.23 and later now supports clustering with dynamic scaling of nodes in the Azure region. It allows you to 
+scale-in or scale-out nodes from the cluster based on the network traffic. It uses logic based on the resource 
+utilization statistics from Azure VMSS CPU metrics to dynamically add or remove a node from a cluster.
+
 ### Resources
 
 * AWS ASAv 9.19 and above: [Code](cluster/aws/)     |     [README](cluster/aws/README.md)     |     [Deployment/Configuration Guide](cluster/aws/cluster-asav-public.pdf)
 * Azure ASAv 9.20.2 and above: [Code](cluster/azure)     |     [README](cluster/azure/README.md)     |     [Deployment/Configuration Guide](cluster/azure/cluster-azure-public.pdf)
+* Azure ASAv 9.23 and above: [Code](cluster/azure)     |     [README](cluster/azure/README.md)     |     [Deployment/Configuration Guide](cluster/azure/cluster-azure-public.pdf)
 
 ## AWS GuardDuty Integration with Cisco ASAv
 

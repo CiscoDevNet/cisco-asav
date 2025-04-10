@@ -1,0 +1,2 @@
+access-list allow-all extended permit ip any any
+access-group allow-all global

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceNamePrefix": {
+      "value": "ca2asav"
+    },
+    "virtualNetworkRg": {
+      "value": "asav-ca-rg"
+    },
+    "virtualNetworkName": {
+      "value": "asav-ca-mgmt"
+    },
+    "virtualNetworkCidr": {
+      "value": "192.168.0.0/16"
+    },
+    "mgmtSubnet": {
+      "value": "mgmt"
+    },
+    "dataInterfaceSubnet": {
+      "value": "data"
+    },
+    "gatewayLoadBalancerIP": {
+      "value": "192.168.1.6"
+    },
+    "dataNetworkGatewayIp": {
+      "value": "192.168.1.1"
+    },
+    "cclSubnet": {
+      "value": "ccl"
+    },
+    "cclSubnetStartAddr": {
+      "value": "192.168.2.4"
+    },
+    "cclSubnetEndAddr": {
+      "value": "192.168.2.30"
+    },
+    "functionHostingPlan": {
+      "value": "consumption"
+    },
+    "clusterGroupName": {
+      "value": "asav-ca"
+    },
+    "healthCheckPortNumber": {
+      "value": "7777"
+    },
+    "imageId": {
+      "value": ""
+    },
+    "vmSize": {
+      "value": "Standard_D3_v2"
+    },
+    "asaAdminUserName": {
+      "value": "admin"
+    },
+    "asaAdminUserPassword": {
+      "value": "password"
+    },
+    "scaleInThreshold": {
+      "value": "10"
+    },
+    "scaleOutThreshold": {
+      "value": "50"
+    },
+    "asavClusterSize": {
+      "value": 3
+    },
+    "metricsAverageDuration": {
+      "value": "1"
+    },
+    "initDeploymentMode": {
+      "value": "BULK"
+    },
+    "scalingPolicy": {
+      "value": "POLICY-2"
+    },
+    "licenseThroughput": {
+      "value": "1G"
+    },
+    "smartLicenseToken": {
+      "value": ""
+    },
+    "asavConfigFileUrl": {
+      "value": ""
+    }
+  }
+}
