@@ -22,8 +22,8 @@ ARM template is used to deploy resources required by ASAv Auto Scale feature in 
    (Note: User needs to build Function App from the source code using Visual Studio)
 *  Logic App acts as an Orchestrator to sequence the operation
 
-Please refer [Deployment Guide](./asav_azure_autoscale_v919.pdf) for detailed instructions on how to Build, Deploy, Configure and Manage Auto Scale solution. 
-Also please refer [Deployment Guide](./asav_azure_autoscale_v919.pdf) to understand the known limitations of this feature.
+Please refer [Deployment Guide](./asav_azure_autoscale.pdf) for detailed instructions on how to Build, Deploy, Configure and Manage Auto Scale solution. 
+Also please refer [Deployment Guide](./asav_azure_autoscale.pdf) to understand the known limitations of this feature.
 
 ## License
 
