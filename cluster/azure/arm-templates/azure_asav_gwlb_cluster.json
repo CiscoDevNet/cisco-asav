@@ -620,7 +620,7 @@
                 "virtualNetworkSubnetId": "[if(equals(variables('functionHostingPlanType'), 'premium'), variables('functionAppSubnetId'), json('null'))]",
                 "vnetRouteAllEnabled": true,
                 "siteConfig": {
-                    "linuxFxVersion": "Python|3.9",
+                    "linuxFxVersion": "Python|3.11",
                     "appSettings": [
                         {
                             "name": "AzureWebJobsDashboard",
