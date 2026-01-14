@@ -11,64 +11,37 @@ From release 9.22 onwards, Cluster deployment in multiple availability zones is 
 Clone the repository 'cisco-asav' to your local environment. Navigate to - cisco-asav/cluster/aws for the required content
 
 ## Create "cluster_layer.zip"
-The cluster_layer.zip can be created on an Amazon Linux VM, after installing Python 3.13 on it. We recommend creating an AmazonLinux-2023 EC2 Instance or using AWS Cloudshell, which runs the latest version of Amazon Linux. <br>
+The cluster_layer.zip can be created on an Amazon Linux VM, with Python 3.9 installed. We recommed
+creating an EC2 instance using Amazon Linux 2023 AMI or use AWS Cloudshell, which runs the latest version of Amazon Linux. <br>
 
-**Steps to prepare the environment (if not already done):**
-*   Install `git`:
-    ```bash
-    sudo yum install git -y
-    ```
-*   Install and initialize `pyenv`:
-    ```bash
-    curl https://pyenv.run | bash
-    echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
-    echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
-    echo 'eval "$(pyenv init -)"' >> ~/.bashrc
-    echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
-    source ~/.bashrc
-    ```
-*   Install development tools and libraries required for Python compilation:
-    ```bash
-    sudo yum groupinstall -y "Development Tools"
-    sudo yum install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel readline-devel sqlite-devel wget make
-    ```
-*   Install Python 3.13.5 using `pyenv` and set it as global:
-    ```bash
-    pyenv install 3.13.5
-    pyenv global 3.13.5
-    pyenv rehash
-    ```
+For creating the cluster-layer.zip file, you need to first create requirements.txt file that consists of the python library package details and then run the shell script. <br>
 
-**Steps to create `cluster_layer.zip`:**
-*   Create and activate a Python 3.13 virtual environment:
-    ```bash
-    python3.13 -m venv myenv
-    source myenv/bin/activate
-    ```
-*   Create file `requirements.txt` listing the required packages:
-    ```
-    cat > requirements.txt << EOF
-    pycryptodome
-    paramiko
-    requests
-    scp
-    jsonschema
-    cffi
-    zipp
-    importlib-metadata
-    EOF
-    ```
-*   Install them using the following command:
-    ```bash
-    pip3 install --platform manylinux2014_x86_64 --target=./python/lib/python3.13/site-packages --implementation cp --python-version 3.13 --only-binary=:all: --upgrade -r requirements.txt
-    ```
-*   Copy to`cluster_layer.zip` file:
-    ```bash
-    zip -r cluster_layer.zip ./python
-    ```
-*   Deactivate the virtual environment.
+(1) Create the requirements.txt file by specifying the python package details. <br>
 
-The resultant `cluster_layer.zip` file should be copied to the `lambda-python-files` folder.
+```bash
+$ cat requirements.txt 
+pycryptodome
+paramiko
+requests
+scp
+jsonschema
+cffi
+zipp
+importlib-metadata
+```
+
+(2) Run the following commands to create cluster_layer.zip file. <br>
+```bash
+$ pip3 install --platform manylinux2014_x86_64 
+--target=./python/lib/python3.9/site-packages 
+--implementation cp --python-version 3.9 --only-binary=:all: 
+--upgrade -r requirements.txt
+$ zip -r cluster_layer.zip ./python
+```
+
+NOTE: If you encounter a dependency conflict during installation,  such as for packages urllib3 or cryptography, it is recommended that you include the conflicting packages along with their recommended versions in the requirements.txt file. After that, you can run the installation again to resolve the conflict. <br>
+
+(3) Copy the resultant cluster_layer.zip file to the directory 'lambda-python-files' present in the cloned repository. <br>
 
 ## Create "configure_asav_cluster.zip" & "lifecycle_asav_cluster.zip"
 A make.py file can be found in the cloned repository top directory. Running this will Zip the python files into Zip
@@ -80,7 +53,7 @@ Run to create zip files <br>
 python3 make.py build <br>
 ```
 
-Run to clean (only if you face errors)<br>
+Run to clean <br>
 ```bash
 python3 make.py clean <br>
 ```

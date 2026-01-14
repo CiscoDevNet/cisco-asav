@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022 Cisco Systems Inc or its affiliates.
+Copyright (c) 2025 Cisco Systems Inc or its affiliates.
 
 All Rights Reserved.
 
@@ -296,6 +296,45 @@ class ASAvInstance(CiscoEc2Instance):
             logger.error("Error occurred: {}".format(repr(e)))
             return 'N/A'
 
+    def get_asav_version(self):
+        """
+        Purpose:    To get ASAv version
+        Parameters:
+        Returns:    Either Version or N/A
+        Raises:
+        """
+        try:
+            command = "show version | grep Software Version " + "\n"
+            status, output, error = self.run_asav_command(command)
+            output_json = {
+                "command": command,
+                "status": status,
+                "output": output,
+                "error": error
+            }
+            match = re.search(r'Version\s+([\d.()]+)', output)
+            if match:
+                version_str = match.group(1)
+                parts = version_str.split('.')
+                if len(parts) >= 2:
+                    major = parts[0][0] if len(parts[0]) > 0 else '0'
+                    minor = parts[1]
+                    minor_first = minor[0] if len(minor) > 0 else '0'
+                    minor_second = minor[1] if len(minor) > 1 else '0'
+                    version_output = major + minor_first + minor_second
+                    return version_output
+                else:
+                    logger.error("Invalid version format")
+            else:
+                logger.error("Version not found")
+        except IndexError as e:
+            logger.debug("Error occurred: {}".format(repr(e)))
+            logger.error("Unable to get ASAv version")
+            return None
+        except Exception as e:
+            logger.error("Error occurred: {}".format(repr(e)))
+            return None
+
      # function to set password(admin) from prev_password to new_password
     def set_asa_password(self):
         """
@@ -577,7 +616,7 @@ class ASAvInstance(CiscoEc2Instance):
         finally:
             cnt_asa.close()
 
-    def configure_cluster(self, octet, az_in_char, az_in_num, number_of_azs):
+    def configure_cluster(self, octet, az_in_char, az_in_num, number_of_azs, instance_id):
         '''
         Purpose:
             Configure cluster
@@ -589,11 +628,27 @@ class ASAvInstance(CiscoEc2Instance):
             * number_of_azs - total number of azs
         Returns:    SUCCESS, None
         '''
-        local_unit = "local-unit {}-{}".format(octet, az_in_char)
-        if number_of_azs != '1':
-            cls_int = "cluster-interface vni1 ip 1.1.{}.{} 255.255.248.0".format(az_in_num,octet)
+        version = self. get_asav_version()
+        logger.info("ASAv version is {}".format(version))
+        if int(version) > 923:
+            if number_of_azs == '1':
+                local_unit = "local-unit {}-{}".format(octet, az_in_char)
+                cls_int = "cluster-interface vni1 ip 169.254.200.{} 255.255.255.224".format(192+(int(octet)%32))
+            else:
+                ec2_instance = EC2Instance(instance_id)
+                node_id = ec2_instance.get_cls_node_id_tag()
+                if node_id:
+                    local_unit = "local-unit {}-{}".format(node_id, az_in_char)
+                    cls_int = "cluster-interface vni1 ip 169.254.200.{} 255.255.255.224".format((192+int(node_id)))
+                else:
+                    logger.error("Unable to read node id tag from the instance")
+                    return None
         else:
-            cls_int = "cluster-interface vni1 ip 1.1.1.{} 255.255.255.0".format(octet)
+            local_unit = "local-unit {}-{}".format(octet, az_in_char)
+            if number_of_azs != '1':
+                cls_int = "cluster-interface vni1 ip 1.1.{}.{} 255.255.248.0".format(az_in_num,octet)
+            else:
+                cls_int = "cluster-interface vni1 ip 1.1.1.{} 255.255.255.0".format(octet)
 
         write_memory_config = 'copy /noconfirm running-config startup-config'
         expected_outcome_write_memory_config = '#'
