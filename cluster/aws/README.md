@@ -77,12 +77,12 @@ In order to do these tasks, the Python3 environment should be available. <br>
 
 Run to create zip files <br>
 ```bash
-python3 make.py build <br>
+python3 make.py build
 ```
 
 Run to clean (only if you face errors)<br>
 ```bash
-python3 make.py clean <br>
+python3 make.py clean
 ```
 
 All 3 Zip files need to be uploaded to AWS S3 bucket in a further step. <br>
