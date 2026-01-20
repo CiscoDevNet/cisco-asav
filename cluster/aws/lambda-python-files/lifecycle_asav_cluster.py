@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022 Cisco Systems Inc or its affiliates.
+Copyright (c) 2025 Cisco Systems Inc or its affiliates.
 
 All Rights Reserved.
 
@@ -22,13 +22,21 @@ Purpose:    This python file has Lambda handler for LifeCycle Lambda
 
 import time
 from aws import *
+from datetime import datetime, timedelta
+from decimal import Decimal
 import constant as const
+import utility as utl
 
 # Setup Logging
 logger = utl.setup_logging(os.environ['DEBUG_LOGS'])
 # Get User input
 user_input = utl.get_user_input_lifecycle_asav()
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table(user_input['AutoScaleGrpName'] + '-lock')
 
+LOCK_ID = "shared-task-lock"
+LOCK_TIMEOUT = 120  # seconds
+POLL_INTERVAL = 2  # seconds
 
 # LifeCycle Hook Handler
 def lambda_handler(event, context):
@@ -59,6 +67,20 @@ def lambda_handler(event, context):
         logger.info("Cloud Watch Event Triggered for group {}".format(autoscaling_group_name))
         if autoscaling_group_name != user_input['AutoScaleGrpName']:
             raise ValueError("AutoScale Group name from event & user input doesn't match!")
+        # Only assign node ID for valid lifecycle events
+        logger.info("udapatil - Number of AZs")
+        logger.info(user_input['NO_OF_AZs'])
+        if user_input['NO_OF_AZs'] != "1":
+            if event["detail-type"] == "EC2 Instance-launch Lifecycle Action":
+                start = time.time()
+                while not acquire_lock():
+                    if time.time() - start > LOCK_TIMEOUT:
+                        raise Exception("Timeout waiting for lock.")
+                    time.sleep(POLL_INTERVAL)
+                if update_nodeid_tag(instance_id) != 'SUCCESS':
+                    release_lock()
+                    raise ValueError("Node ID is not assigned to Instance")
+                release_lock()
     except KeyError as e:
         logger.debug("Error occurred: {}".format(repr(e)))
         logger.info("Not an EC2 Lifecycle CloudWatch event!")
@@ -89,6 +111,9 @@ def lambda_handler(event, context):
                 lifecycle_deregister_smart_license(instance_id)
                 if deregister_instance(ec2_instance) == 'SUCCESS':
                     time.sleep(int(user_input['LB_DEREGISTRATION_DELAY']))
+                    if user_input['PROXY_TYPE'] == 'dual-arm':
+                        if disassociate_and_release_eip(ec2_instance) != 'SUCCESS':
+                            life_cycle_action = 'FAIL'
                     life_cycle_action = 'SUCCESS'
                 else:
                     life_cycle_action = 'FAIL'
@@ -107,6 +132,39 @@ def lambda_handler(event, context):
     utl.put_line_in_log('LifeCycle Lambda Handler finished', 'thick')
     return
 
+def acquire_lock():
+    try:
+        table.put_item(
+            Item={
+                "lock_id": LOCK_ID,
+                "timestamp": Decimal(str(time.time()))
+            },
+            ConditionExpression="attribute_not_exists(lock_id)"
+        )
+        print("Lock acquired.")
+        return True
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            print("Lock is already held.")
+            return False
+        else:
+            raise
+
+def release_lock():
+    table.delete_item(Key={"lock_id": LOCK_ID})
+    print("Lock released.")
+
+def update_nodeid_tag(instance_id):
+    # Assign a unique nodeID tag to this instance
+    # Use EC2Instance directly to avoid potential circular import issues
+    ec2_instance = EC2Instance(instance_id)
+    node_id = ec2_instance.assign_cls_node_id_tag()
+    if node_id is not None:
+        logger.info(f"Assigned nodeID {node_id} to instance {instance_id}")
+        return 'SUCCESS'
+    else:
+        logger.warning(f"Failed to assign nodeID to instance {instance_id}")
+        return 'FAIL'
 
 def create_interface_and_attach(ec2_instance):
     """
@@ -115,16 +173,23 @@ def create_interface_and_attach(ec2_instance):
     Returns:    SUCCESS, FAIL
     Raises:
     """
+    user_input = utl.get_user_input_lifecycle_asav()
     # Get Availability zone & Subnet
     instance_az = ec2_instance.get_instance_az()
     logger.info("EC2 instance has been launched in AZ: " + instance_az)
     subnets_list_in_az = ec2_instance.get_subnet_list_in_az(instance_az)
     logger.info("List of subnet in %s is: %s" % (instance_az, subnets_list_in_az))
-
+    if user_input['PROXY_TYPE'] != 'dual-arm':
+        user_input['max_number_of_interfaces'] = '2'
     # Create and Attach interfaces from respective subnet
     utl.put_line_in_log('Attaching Interface', 'dot')
+
     # Should be able to add defined max no of interfaces
     for dev_index in range(1, int(user_input['max_number_of_interfaces'])+1):
+        if dev_index == 2 and user_input['PROXY_TYPE'] != 'dual-arm':
+            logger.info("Single-arm deployment mode!")
+            user_input['SUBNET_ID_LIST_2'] = user_input['SUBNET_ID_LIST_3']
+            user_input['SECURITY_GRP_2'] = user_input['SECURITY_GRP_3']
         eni_name = ec2_instance.instance_id + const.ENI_NAME_PREFIX + str(dev_index)
         sec_grp_id = user_input[const.SECURITY_GROUP_PREFIX + str(dev_index)]
         subnet_id_list = const.SUBNET_ID_LIST_PREFIX + str(dev_index)
@@ -227,3 +292,14 @@ def lifecycle_deregister_smart_license(instance_id):
     # Sleep for 90 seconds
     time.sleep(1 * 90)  # Will be covered in Deregistration delay in future
     return
+
+def disassociate_and_release_eip(ec2_instance):
+    """
+    Purpose:    To disassociate and release EIP associated with Gig0/1 interface for Dual-arm
+    Parameters: Object
+    Returns:    SUCCESS, FAIL
+    Raises:
+    """
+    utl.put_line_in_log('Disassociating and Releasing Elastic IP for outside interface', 'dot')
+    if ec2_instance.disassociate_from_instance_and_release_eip() == 'FAIL':
+        utl.put_line_in_log('Disassociating and Releasing Elastic IP for outside interface: FAIL', 'dot')
