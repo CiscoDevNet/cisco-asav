@@ -1,0 +1,19 @@
+!Sample Config for traffic NAT Rules
+
+!! INBOUND TRAFFIC NAT
+! object network Ubuntu-App-VM
+! host <application_vm_private_ip>
+! nat (outside,inside) source static any interface destination static ELB-NORTH Ubuntu-App-VM
+!OR
+! object service traffic_port 
+! service tcp destination eq www
+! nat (outside,inside) source static any any destination static ELB-NORTH Ubuntu-App-VM service traffic_port traffic_port
+
+!! OUTBOUND TRAFFIC NAT
+! object network obj-any 
+! subnet 0.0.0.0 0.0.0.0
+! nat (inside,outside) source dynamic any interface destination static obj-any obj-any
+!OR
+! object network App-Subnet
+! subnet <application_subnet_CIDR> <application_subnet_netmask>
+! nat (any,outside) source dynamic App-Subnet interface
