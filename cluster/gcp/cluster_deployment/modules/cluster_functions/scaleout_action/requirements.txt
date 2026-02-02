@@ -1,0 +1,12 @@
+# Function dependencies, for example:
+# package>=version
+google-api-python-client
+google-auth
+google-auth-httplib2
+paramiko==3.4.0
+oauth2client
+google-cloud-secret-manager
+cryptography==39.0.1
+google-cloud-functions
+warn==0.1.0
+

@@ -4,6 +4,7 @@ import paramiko
 import json
 import socket
 import logging
+import re
 
 ASAV_SSH_PORT = 22
 
@@ -34,6 +35,8 @@ class ASAvInstance():
         self.FAIL = 'FAILURE'
         self.connection = None
         self.id = id
+        self._cached_version = None
+        self._cached_vni_prefix = None
 
     def connect_asa(self):
         """
@@ -81,6 +84,133 @@ class ASAvInstance():
             logging.warn("Unable to run command output: %s error: %s" % (output, error))
             return self.FAIL, output, error
 
+    def get_asav_version(self):
+        """
+        Purpose:    Get ASAv software version from the device (cached)
+        Parameters:
+        Returns:    List [major, minor, patch] (e.g., [9, 24, 1]) or None
+        Raises:
+        """
+        # Return cached version if already queried
+        if self._cached_version is not None:
+            return self._cached_version
+        
+        try:
+            command = "show version | grep Software Version"
+            status, output, error = self.run_asav_command(command)
+            logging.info("ASAv version output: %s" % output)
+            
+            if status == self.COMMAND_RAN:
+                # Match version with optional build after parenthesis: 9.23(1)22 or 9.20(4.10)
+                match = re.search(r'Version\s+([\d.()]+)', output)
+                if not match:
+                    logging.error("Version not found in output")
+                    return None
+
+                version_str = match.group(1)
+                # Parse version formats:
+                # - 9.24(1) → major=9, minor=24, patch=1, build=0
+                # - 9.20(4.10) → major=9, minor=20, patch=4, build=10
+                # - 9.23(1)22 → major=9, minor=23, patch=1, build=22
+                
+                # Extract components using regex
+                version_pattern = r'^(\d+)\.(\d+)\((\d+)(?:\.(\d+))?\)(\d+)?$'
+                version_match = re.match(version_pattern, version_str)
+                
+                if not version_match:
+                    logging.error("Invalid version format: {}".format(version_str))
+                    return None
+
+                try:
+                    major = version_match.group(1)
+                    # Handle special case where internal builds use 99.x for 9.x
+                    if major == '99':
+                        major = '9'
+                    
+                    major_int = int(major)
+                    minor_int = int(version_match.group(2))
+                    patch_int = int(version_match.group(3))
+                    # Build can be in group 4 (inside parens: 9.20(4.10)) or group 5 (after parens: 9.23(1)22)
+                    build_int = int(version_match.group(4) or version_match.group(5) or 0)
+                    
+                    self._cached_version = [major_int, minor_int, patch_int, build_int]
+                    
+                    # Determine and cache VNI IP prefix based on granular version thresholds
+                    self._cached_vni_prefix = self._determine_vni_prefix(self._cached_version)
+                    
+                    logging.info("Detected ASAv version: {}.{}({}.{}) using VNI IP prefix {}".format(
+                        major_int, minor_int, patch_int, build_int, self._cached_vni_prefix))
+                    
+                    return self._cached_version
+                    
+                except (ValueError, IndexError, AttributeError) as e:
+                    logging.error("Failed to parse version integers from {}: {}".format(version_str, repr(e)))
+                    return None
+            
+            logging.warning("Failed to parse ASAv version from show version output")
+            return None
+        except Exception as e:
+            logging.error("Error getting ASAv version: {}".format(repr(e)))
+            return None
+
+    def _determine_vni_prefix(self, version):
+        """
+        Purpose:    Determine VNI IP prefix based on granular version thresholds
+        Parameters: version - List [major, minor, patch, build]
+        Returns:    IP prefix string ('169.254.200' or '1.1.1')
+        Raises:
+        """
+        major, minor, patch, build = version
+        
+        # Define minimum versions for new VNI IP (169.254.200)
+        # Format: (major, minor): (major, minor, patch, build)
+        thresholds = {
+            (9, 20): (9, 20, 4, 10),
+            (9, 22): (9, 22, 2, 14),
+            (9, 23): (9, 23, 1, 19),
+            (9, 24): (9, 24, 1, 0),
+        }
+        
+        # Check if version >= 9.25 (all patches use new IP)
+        if (major, minor) >= (9, 25):
+            return '169.254.200'
+        
+        # Check if version >= 10.x (future major versions use new IP)
+        if major >= 10:
+            return '169.254.200'
+        
+        # Check specific thresholds for 9.20-9.24
+        if (major, minor) in thresholds:
+            if tuple(version) >= thresholds[(major, minor)]:
+                return '169.254.200'
+            else:
+                return '1.1.1'
+        
+        # For minor versions not in threshold list (e.g., 9.21.x)
+        # Use conservative approach: default to old IP
+        return '1.1.1'
+
+    def _get_vni_ip_prefix(self):
+        """
+        Purpose:    Determine VNI IP prefix based on software version
+        Parameters:
+        Returns:    IP prefix string ('169.254.200' for 9.24+, '1.1.1' for older)
+        Raises:
+        """
+        # Return cached VNI prefix if already determined
+        if self._cached_vni_prefix is not None:
+            return self._cached_vni_prefix
+        
+        # Trigger version detection (which also caches VNI prefix)
+        version = self.get_asav_version()
+        
+        # If version detection failed, default to 169.254.200
+        if self._cached_vni_prefix is None:
+            logging.warning("Could not determine version, defaulting to VNI IP prefix 169.254.200")
+            self._cached_vni_prefix = '169.254.200'
+        
+        return self._cached_vni_prefix
+
     def check_asav_cluster_status(self, cluster_group_name='asav-cluster'):
         '''
         Purpose:
@@ -117,7 +247,25 @@ class ASAvInstance():
         """
         local_unit = "local-unit {}".format(octet)
         cls_group = "cluster group {}".format(cluster_group_name)
-        cls_int = "cluster-interface vni1 ip 1.1.1.{} 255.255.255.0".format(octet)
+        
+        # Determine VNI IP based on detected version
+        vni_prefix = self._get_vni_ip_prefix()
+        
+        # Calculate cluster octet with offset for 9.24+
+        octet_int = int(octet)
+        if vni_prefix == '169.254.200':
+            cluster_octet = 192 + (octet_int % 32)
+            if not (0 <= cluster_octet <= 255):
+                logging.error("Computed cluster IP octet out of range: {}".format(cluster_octet))
+                raise ValueError("Computed cluster IP octet out of range: {}".format(cluster_octet))
+            netmask = '255.255.255.224'  # /27 for 32-address block (192-223)
+        else:
+            cluster_octet = octet_int
+            netmask = '255.255.255.0'    # /24 for old IP range
+        
+        cls_int = "cluster-interface vni1 ip {}.{} {}".format(vni_prefix, cluster_octet, netmask)
+        
+        logging.info("Applying cluster config with VNI IP: {}.{} (mgmt octet: {})".format(vni_prefix, cluster_octet, octet))
         cnt_asa = self.connect_asa()
         write_memory_config = 'copy /noconfirm running-config startup-config'
         expected_outcome_write_memory_config = '#'
@@ -928,19 +1076,19 @@ class ParamikoSSH:
         status, shell = self.invoke_interactive_shell()
         if status != self.SUCCESS:
             raise ValueError("Unable to invoke shell")
-        if self.send_cmd_and_wait_for_execution(shell, '\n') is not None:
+        if self.send_cmd_and_wait_for_execution(shell, b'\n') is not None:
             for key in command_set:
                 set = command_set[key]
                 for i in range(0, len(set)):
-                    command = set[i]['command'] + '\n'
+                    command = (set[i]['command'] + '\n').encode('utf-8')
                     expect = set[i]['expect']
                     if self.send_cmd_and_wait_for_execution(shell, command, expect) is not None:
                         pass
                     else:
-                        if password in command:
+                        if password.encode('utf-8') in command:
                             raise ValueError("Unable to pass the Password!")
                         else:
-                            raise ValueError("Unable to execute command! : {}".format(command))
+                            raise ValueError("Unable to execute command! : {}".format(command.decode('utf-8')))
         else:
             logging.error("Error in handle_interactive_session")
         return
@@ -955,11 +1103,13 @@ class ParamikoSSH:
         shell.settimeout(self.timeout)
         total_msg = ""
         try:
+            cmd_str = command.decode('utf-8') if isinstance(command, bytes) else str(command)
+            logging.info("Sending command: {}".format(cmd_str.strip()))
             shell.send(command)
             while wait_string not in total_msg:
                 rcv_buffer = shell.recv(10000)
                 total_msg = total_msg + rcv_buffer.decode("utf-8")
-                logging.debug("Expected string in output: {}", wait_string in total_msg)
+                logging.info("Expected string {} in output: {}".format(wait_string, total_msg))
 
             return total_msg
 

@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022 Cisco Systems Inc or its affiliates.
+Copyright (c) 2025 Cisco Systems Inc or its affiliates.
 
 All Rights Reserved.
 
@@ -34,6 +34,8 @@ import utility as utl
 
 # Setup Logging
 logger = utl.setup_logging(os.environ['DEBUG_LOGS'])
+# Get User input
+user_input = utl.get_user_input_lifecycle_asav()
 
 
 class SimpleNotificationService:
@@ -418,6 +420,88 @@ class EC2Instance:
             logger.error("Unable to get autoscale group from describe_instance ")
             return None
 
+    def assign_cls_node_id_tag(self, asg_name=None):
+        """
+        Purpose:    To assign a unique cluster-node-id tag to an instance in an autoscaling group
+                    There will be max 16 cluster-node-id tags on instances in the autoscaling group
+        Parameters: Autoscaling group name (optional, will use instance's ASG if not provided)
+        Returns:    The assigned cluster-node-id number or None if failed
+        Raises:     None
+        """
+        try:
+            # If ASG name not provided, get it from the instance
+            if asg_name is None:
+                asg_name = self.get_instance_asg_name()
+                if asg_name is None:
+                    logger.error(f"Could not determine ASG name for instance {self.instance_id}")
+                    return None
+            
+            # Initialize autoscaling client
+            asg_client = boto3.client('autoscaling')
+            
+            # Get all instances in the ASG
+            response = asg_client.describe_auto_scaling_groups(AutoScalingGroupNames=[asg_name])
+            if not response['AutoScalingGroups']:
+                logger.error(f"ASG {asg_name} not found")
+                return None
+            
+            # Get instances that are in relevant states (InService, Pending, Pending:Wait, Pending:Proceed)
+            relevant_instances = []
+            relevant_states = ['InService', 'Pending', 'Pending:Wait', 'Pending:Proceed']
+            for instance in response['AutoScalingGroups'][0]['Instances']:
+                if instance['LifecycleState'] in relevant_states:
+                    relevant_instances.append(instance['InstanceId'])
+            
+            # Get all existing cluster-node-id tags
+            ec2_client = boto3.client('ec2')
+            existing_node_ids = set()
+            
+            if relevant_instances:
+                instance_tags_response = ec2_client.describe_tags(Filters=[
+                    {'Name': 'resource-id', 'Values': relevant_instances},
+                    {'Name': 'key', 'Values': ['cluster-node-id']}
+                ])
+                
+                for tag in instance_tags_response.get('Tags', []):
+                    try:
+                        node_id = int(tag['Value'])
+                        existing_node_ids.add(node_id)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Invalid cluster-node-id value found: {tag['Value']}")
+            logger.info(f"Existing cluster-node-ids: {existing_node_ids}")
+            # Find the lowest available cluster-node-id (1-16)
+            new_node_id = None
+            for i in range(1, 17):  # Max 16 cluster-node-ids
+                if i not in existing_node_ids:
+                    new_node_id = i
+                    break
+            
+            if new_node_id is None:
+                logger.error("No available cluster-node-id slots (1-16) found")
+                return None
+            
+            # Assign the new cluster-node-id to the instance
+            ec2_client.create_tags(
+                Resources=[self.instance_id],
+                Tags=[{'Key': 'cluster-node-id', 'Value': str(new_node_id)}]
+            )
+            logger.info(f"Assigned new cluster-node-id {new_node_id} to instance {self.instance_id}")
+            return new_node_id
+        
+        except Exception as e:
+            logger.error(f"Error assigning cluster-node-id tag: {str(e)}")
+            return None
+
+    def get_cls_node_id_tag(self):
+        ec2_client = boto3.client('ec2')
+        response = ec2_client.describe_instances(InstanceIds=[self.instance_id])
+        for reservation in response['Reservations']:
+            for instance in reservation['Instances']:
+                for tag in instance['Tags']:
+                    if tag['Key'] == 'cluster-node-id':
+                        return tag['Value']
+        return None
+
     def get_security_group_id(self):
         """
         Purpose:    To get Security group Id
@@ -577,8 +661,19 @@ class EC2Instance:
             try:
                 network_interface = self.ec2.create_network_interface(SubnetId=subnet_id, Groups=[sec_grp_id])
                 network_interface_id = network_interface['NetworkInterface']['NetworkInterfaceId']
+                #FOR DUAL-ARM DEPLOYMENTS ONLY: Create and attach Elastic IP to outside interface
+                if user_input['PROXY_TYPE'] == 'dual-arm' and const.ENI_NAME_OF_INTERFACE_2 in eni_name:
+                    logger.info('Creating and attaching Elastic IP to outside interface ..')
+                    elastic_ip_response = self.ec2.allocate_address(Domain='vpc')
+                    public_ip = elastic_ip_response['PublicIp']
+                    allocation_id = elastic_ip_response['AllocationId']
+                    # Associate the Elastic IP address with the network interface
+                    self.ec2.associate_address(
+                        AllocationId=allocation_id,
+                        NetworkInterfaceId=network_interface_id
+                    )
+                    logger.info ('Successfully attached Elastic IP {} to interface ..'.format(public_ip))
                 logger.info("Created network interface: {}".format(network_interface_id))
-
                 self.ec2.create_tags(Resources=[network_interface_id], Tags=[{'Key': 'Name', 'Value': eni_name}])
                 logger.info("Added tag {} to network interface".format(eni_name))
             except botocore.exceptions.ClientError as e:

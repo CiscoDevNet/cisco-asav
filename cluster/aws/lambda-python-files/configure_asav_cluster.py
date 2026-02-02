@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022 Cisco Systems Inc or its affiliates.
+Copyright (c) 2025 Cisco Systems Inc or its affiliates.
 
 All Rights Reserved.
 
@@ -185,9 +185,6 @@ def handle_sns_event(sns_data):
             return
         asa.create_instance_tags('Name', asa.vm_name)  # To put Name tag on instance
         if sns_msg_attr['category'] == 'FIRST':
-            logger.info("Device is booting.. Waiting...")
-            time.sleep(120)
-
             if execute_cluster_ready_first(asa) == 'SUCCESS':
                 logger.info("SSH to ASAv is successful, Next action: Configuration")
                 if not const.DISABLE_CLUSTER_CONFIGURE_FUNC:
@@ -350,7 +347,8 @@ def handle_ec2_launch_event(instance_id):
     sns = SimpleNotificationService()
     if instance_id is not None:
         logger.info("Received EC2 launch notification for instance-id: " + str(instance_id))
-
+        logger.info("Waiting for lifecycle action to complete")
+        time.sleep(30)
         # ASAv class initialization
         instance = ASAvInstance(instance_id)
         instance_state = instance.get_instance_state()
@@ -462,7 +460,7 @@ def execute_cluster_configure_first(asa):
     az_in_char = az[len(az)-1]
     az_in_num = str(ord(az_in_char.lower()) - ord('a') + 1)
     number_of_azs = user_input['NO_OF_AZs']
-    if asa.configure_cluster(octet, az_in_char, az_in_num, number_of_azs) == "SUCCESS":
+    if asa.configure_cluster(octet, az_in_char, az_in_num, number_of_azs, asa.instance_id) == "SUCCESS":
         logger.info("Cluster configuration successfully applied..!")
         asa.create_instance_tags('ASAvConfigurationStatus', 'DONE')
         return 'SUCCESS'

@@ -173,6 +173,9 @@ def check_and_enable_cluster(asav_obj, vm_to_configure, retries=1):
         log.error("ConfigureASAv:: Hostname configuration failed for the ASAv VM {}."
                   .format(vm_to_configure['MgmtPublic']))
 
+    # Query version early to cache it (minimizes delay during cluster config)
+    asav_obj.get_asav_version()
+    
     cluster_status = asav_obj.check_asav_cluster_status()
     if cluster_status == "NOT ENABLED":
         log.info("ConfigureASAv:: Enabling cluster on the ASAv : {}".format(vm_to_configure['MgmtPublic']))

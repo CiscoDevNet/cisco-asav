@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022 Cisco Systems Inc or its affiliates.
+Copyright (c) 2025 Cisco Systems Inc or its affiliates.
 
 All Rights Reserved.
 
@@ -90,30 +90,36 @@ def get_user_input_lifecycle_asav():
     """
     user_input = {
         "AutoScaleGrpName": "",
-        "max_number_of_interfaces": "2",
+        "max_number_of_interfaces": "",
         "NO_OF_AZs": "",
         "SUBNET_ID_LIST_1": [],
         "SUBNET_ID_LIST_2": [],
+        "SUBNET_ID_LIST_3": [],
         "GWLB_ARN": "",
-        "SECURITY_GRP_1": [],
+        "SECURITY_GRP_1": "",
         "SECURITY_GRP_2": "",
+        "SECURITY_GRP_3": "",
         "LB_DEREGISTRATION_DELAY": "",
         "CLS_MANAGER_TOPIC": "",
         "USER_NOTIFY_TOPIC_ARN": "",
-        "ASA_LICENSE_TYPE": ""
+        "ASA_LICENSE_TYPE": "",
+        "PROXY_TYPE":""
     }
 
     try:
         user_input['AutoScaleGrpName'] = os.environ['ASG_NAME']
-        user_input['max_number_of_interfaces'] = '2'
+        user_input['max_number_of_interfaces'] = '3'
         user_input['NO_OF_AZs'] = os.environ['NO_OF_AZs']
         user_input['ASA_LICENSE_TYPE'] = os.environ['ASA_LICENSE_TYPE']
         user_input['SUBNET_ID_LIST_1'] = os.environ['INSIDE_SUBNET'].split('::')
-        user_input['SUBNET_ID_LIST_2'] = os.environ['CCL_SUBNET'].split('::')
+        user_input['SUBNET_ID_LIST_2'] = os.environ['OUTSIDE_SUBNET'].split('::')
+        user_input['SUBNET_ID_LIST_3'] = os.environ['CCL_SUBNET'].split('::')
         user_input['GWLB_ARN'] = os.environ['GWLB_ARN']
         user_input['SECURITY_GRP_1'] = os.environ['SECURITY_GRP_1']
         user_input['SECURITY_GRP_2'] = os.environ['SECURITY_GRP_2']
+        user_input['SECURITY_GRP_3'] = os.environ['SECURITY_GRP_3']
         user_input['LB_DEREGISTRATION_DELAY'] = os.environ['LB_DEREGISTRATION_DELAY']
+        user_input['PROXY_TYPE'] = os.environ['PROXY_TYPE']
         user_input['CLS_MANAGER_TOPIC'] = os.environ['CLS_MANAGER_TOPIC']
         try:
             user_input['USER_NOTIFY_TOPIC_ARN'] = os.environ['USER_NOTIFY_TOPIC_ARN']

@@ -35,7 +35,7 @@
     "cclSubnetEndAddr": {
       "value": "192.168.2.30"
     },
-    "functionPlan": {
+    "functionHostingPlan": {
       "value": "consumption"
     },
     "clusterGroupName": {
@@ -50,6 +50,9 @@
     "softwareVersion": {
       "value": "9231.0.0"
     },
+    "enableSecureBoot": {
+      "value": "false"
+    },
     "vmSize": {
       "value": "Standard_D3_v2"
     },
@@ -58,6 +61,9 @@
     },
     "asaAdminUserPassword": {
       "value": "password"
+    },
+    "autoscaling": {
+      "value": "Enable"
     },
     "scaleInThreshold": {
       "value": "10"
