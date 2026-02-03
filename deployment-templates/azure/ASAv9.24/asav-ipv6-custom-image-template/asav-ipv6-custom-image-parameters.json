@@ -1,0 +1,117 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmName": {
+      "value": "cisco-asav"
+    },
+    "vmImageId": {
+      "value": "/subscriptions/{subscription-id}/resourceGroups/{resource-group-name}/providers/Microsoft.Compute/images/{image-name}"
+    },
+    "adminUsername": {
+      "value": "cisco"
+    },
+    "adminPassword": {
+      "value": "Password@2022"
+    },
+    "availabilityZone": {
+      "value": null
+    },
+    "vmStorageAccount": {
+      "value": "ciscostorageasav22"
+    },
+    "userData": {
+      "value": "!\ninterface management0\/0\nmanagement-only\nnameif management\nsecurity-level 100\nip address dhcp setroute\nipv6 enable\nipv6 address dhcp\nipv6 nd dad attempts 0\nno shutdown\n!\ncrypto key generate rsa modulus 2048\nssh 0 0 management\nssh ::/0 management\nssh timeout 60\nssh version 2\nusername admin password Password@2022 privilege 15\nenable password Password@2022\nusername admin attributes\nservice-type admin\naaa authentication ssh console LOCAL\nipv6 route management ::/0 fe80::1234:5678:9abc\n!\naccess-list allow-all extended permit ip any any\naccess-group allow-all global\n!\ndns domain-lookup management\ndns server-group DefaultDNS\nname-server 8.8.8.8\n!"
+    },
+    "virtualNetworkNewOrExisting": {
+      "value": "new"
+    },
+    "virtualNetworkResourceGroup": {
+      "value": "cisco-asav-rg"
+    },
+    "virtualNetworkName": {
+      "value": "cisco-asav-vnet"
+    },
+    "virtualNetworkAddressPrefixes": {
+      "value": "10.151.0.0/16"
+    },
+    "virtualNetworkv6AddressPrefixes": {
+      "value": "ace:cab:deca::/48"
+    },
+    "Subnet1Name": {
+      "value": "mgmt-ipv6"
+    },
+    "Subnet1Prefix": {
+      "value": "10.151.1.0/24"
+    },
+    "Subnet1IPv6Prefix": {
+      "value": "ace:cab:deca:1111::/64"
+    },
+    "subnet1StartAddress": {
+      "value": "10.151.1.4"
+    },
+    "subnet1v6StartAddress": {
+      "value": "ace:cab:deca:1111::6"
+    },
+    "Subnet2Name": {
+      "value": "diag-ipv6"
+    },
+    "Subnet2Prefix": {
+      "value": "10.151.2.0/24"
+    },
+    "Subnet2IPv6Prefix": {
+      "value": "ace:cab:deca:2222::/64"
+    },
+    "subnet2StartAddress": {
+      "value": "10.151.2.4"
+    },
+    "subnet2v6StartAddress": {
+      "value": "ace:cab:deca:2222::6"
+    },
+    "Subnet3Name": {
+      "value": "inside-ipv6"
+    },
+    "Subnet3Prefix": {
+      "value": "10.151.3.0/24"
+    },
+    "Subnet3IPv6Prefix": {
+      "value": "ace:cab:deca:3333::/64"
+    },
+    "subnet3StartAddress": {
+      "value": "10.151.3.4"
+    },
+    "subnet3v6StartAddress": {
+      "value": "ace:cab:deca:3333::6"
+    },
+    "Subnet4Name": {
+      "value": "outside-ipv6"
+    },
+    "Subnet4Prefix": {
+      "value": "10.151.4.0/24"
+    },
+    "Subnet4IPv6Prefix": {
+      "value": "ace:cab:deca:4444::/64"
+    },
+    "subnet4StartAddress": {
+      "value": "10.151.4.4"
+    },
+    "subnet4v6StartAddress": {
+      "value": "ace:cab:deca:4444::6"
+    },
+    "vmSize": {
+      "value": "Standard_DS3_v2"
+    },
+    "publicInboundPorts": {
+      "value": "None"
+    },
+    "selectedInboundPorts": {
+      "value": [
+        "22",
+        "443"
+      ]
+    },
+    "enableSecureBoot": {
+      "value": false
+    }
+  }
+}
