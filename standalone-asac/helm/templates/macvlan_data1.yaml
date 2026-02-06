@@ -14,17 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+{{- if eq .Values.asac.enable_sriov "false" }}
 # inside interface macvlan bridge
+
 apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
 metadata:
-   name: macvlan-in-bridge
+   name: macvlan-data1-bridge
 spec:
    config: |-
      {
         "cniVersion": "0.3.0",
         "type": "macvlan",
-        "master": "{{ .Values.asacInsideInterface }}",
+        "master": "{{ .Values.worker_nodes.asacData1Interface }}",
         "mode": "bridge"
      }
-
+{{- end }}

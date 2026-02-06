@@ -20,77 +20,140 @@ metadata:
   name: interface-config
 data:
   interface-config: |-
+{{- if eq .Values.asac.enable_ha "true" }}
+{{ .Files.Get "interface-config-ha" | indent 4 }}
+{{- else }}
 {{ .Files.Get "interface-config" | indent 4 }}
+{{- end }}
 
 ---
 
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: day0-config
+  name: day0-config-primary
 data:
   day0-config: |-
+{{- if eq .Values.asac.enable_ha "true" }}
+{{ .Files.Get "day0-config-primary" | indent 4 }}
+{{- else }}
 {{ .Files.Get "day0-config" | indent 4 }}
+{{- end }}
 
 ---
 
+{{- if eq .Values.asac.enable_ha "true" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: day0-config-secondary
+data:
+  day0-config: |-
+{{ .Files.Get "day0-config-secondary" | indent 4 }}
+{{- end }}
+
+---
+
+{{- if .Values.worker_nodes.persistence.lina.enabled }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: local-pv
+  name: lina-pv-primary
 spec:
   capacity:
-    storage: 1Gi
+    storage: {{ .Values.worker_nodes.persistence.lina.size }}
   accessModes:
-  - ReadWriteMany
+  - {{ .Values.worker_nodes.persistence.lina.accessMode }}
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: local-storage
-  local:
-    path: {{ .Values.persistVolPath }}
-  nodeAffinity:
-    required:
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: node-role.kubernetes.io/control-plane
-          operator: NotIn
-          values:
-          - ""
+  storageClassName: {{ .Values.worker_nodes.persistence.lina.storageClass }}
+  hostPath:
+    path: {{ .Values.worker_nodes.persistence.lina.hostPath }}
+    type: DirectoryOrCreate
+{{- end }}
 
 ---
 
+{{- if and .Values.worker_nodes.persistence.lina.enabled (eq .Values.asac.enable_ha "true") }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: lina-pv-secondary
+spec:
+  capacity:
+    storage: {{ .Values.worker_nodes.persistence.lina.size }}
+  accessModes:
+  - {{ .Values.worker_nodes.persistence.lina.accessMode }}
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ .Values.worker_nodes.persistence.lina.storageClass }}
+  hostPath:
+    path: {{ .Values.worker_nodes.persistence.lina.hostPath }}
+    type: DirectoryOrCreate
+{{- end }}
+
+---
+
+{{- if .Values.worker_nodes.persistence.lina.enabled }}
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: local-pvc
+  name: lina-pvc-primary
 spec:
   accessModes:
-  - ReadWriteMany
-  storageClassName: local-storage
+  - {{ .Values.worker_nodes.persistence.lina.accessMode }}
+  storageClassName: {{ .Values.worker_nodes.persistence.lina.storageClass }}
   resources:
     requests:
-      storage: 1Gi
+      storage: {{ .Values.worker_nodes.persistence.lina.size }}
+{{- end }}
+
+---
+
+{{- if and .Values.worker_nodes.persistence.lina.enabled (eq .Values.asac.enable_ha "true") }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: lina-pvc-secondary
+spec:
+  accessModes:
+  - {{ .Values.worker_nodes.persistence.lina.accessMode }}
+  storageClassName: {{ .Values.worker_nodes.persistence.lina.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.worker_nodes.persistence.lina.size }}
+{{- end }}
 
 ---
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: asac
+  name: {{ .Values.asac.app_name }}{{- if eq .Values.asac.enable_ha "true" }}-primary{{- end }}
   labels:
-    app: ASAC
-    tier: asavc
+    app: ASAC_PRIMARY
+    tier: asac
+    role: primary
 spec:
   replicas: {{ .Values.replicas | default 1 }}
   selector:
     matchLabels:
-      app: ASAC
+      app: ASAC_PRIMARY
   template:
     metadata:
       annotations:
-        k8s.v1.cni.cncf.io/networks: macvlan-mgmt-bridge, macvlan-in-bridge, macvlan-out-bridge 
+        k8s.v1.cni.cncf.io/networks: macvlan-mgmt-bridge{{- if eq .Values.asac.enable_ha "true" }}, macvlan-fover-bridge{{- end }}, macvlan-data1-bridge, macvlan-data2-bridge
       labels:
-        app: ASAC
+        app: ASAC_PRIMARY
+        role: primary
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: ASAC_SECONDARY
+              topologyKey: kubernetes.io/hostname
       volumes:
       - name:  modulepath
         hostPath:
@@ -98,15 +161,12 @@ spec:
       - name: local
         hostPath:
           path: /local/configvol
-      - name: dev
-        hostPath:
-          path: /dev
       - name: hugepage
         emptyDir:
           medium: HugePages
       - name: day0-config
         configMap:
-          name: day0-config
+          name: day0-config-primary
           optional: true
           items:
           - key: day0-config
@@ -120,10 +180,10 @@ spec:
             path: interface-config
       - name: persistent-storage
         persistentVolumeClaim:
-          claimName: local-pvc
+          claimName: lina-pvc-primary
       containers:
       - name: asac
-        image: {{ .Values.image.repository }}
+        image: {{ .Values.asac.repository }}
         stdin: true
         tty: true
         securityContext:
@@ -133,30 +193,10 @@ spec:
         env:
         - name: ASA_DOCKER
           value: "1"
-        - name: RUN_ASA_WITH_GDB
-          value: "0"
         - name: ASAC_MEMORY
-          value: "2048M"
+          value: "{{ .Values.asac.memory }}M"
         - name: ASAC_CPUS
-          value: "1"
-        - name: DISABLE_DPDK
-          value: "0"
-        - name: ASA_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: ASA_POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: ASA_POD_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-        - name: CORE_SIZE_LIMIT
-          value: "200MB"
-        - name: COREDUMP_PATH
-          value: "/mnt/coredump_repo/"
+          value: {{ .Values.asac.cpus | quote }}
         - name: ASAC_STANDALONE_MODE
           value: "1"
         - name: ASAC_ROOT_PRIVILEGE
@@ -166,8 +206,6 @@ spec:
             mountPath: /lib/modules
           - name: local
             mountPath: /config
-          - name: dev
-            mountPath: /dev
           - mountPath: /hugepages
             name: hugepage
           - name: day0-config
@@ -178,27 +216,13 @@ spec:
             mountPath: /mnt/disk0/.private
         resources:
           limits:
-            hugepages-2Mi: 64Mi
-            memory: 2Gi
+            hugepages-2Mi: 512Mi
+            memory: {{ .Values.asac.memory }}Mi
+            cpu: {{ .Values.asac.cpus }}
           requests:
-            hugepages-2Mi: 64Mi
-            memory: 2Gi
-        lifecycle:
-          postStart:
-            exec:
-              command:
-              - /bin/sh
-              - -c
-              -  |
-                 sleep 30
-                 /sbin/ip route show table 1 | grep "dev eth0"
-                 if [ $? -eq 0 ]; then
-                   /sbin/ip route delete default via 169.254.1.1 dev eth0 table 1
-                   /sbin/ip route add default via 169.254.1.1 dev tap_nlp table 1
-                 fi
-          preStop:
-            exec:
-              command: ["/bin/sh","-c","rm -rf /mnt/disk0/.private/*"]
+            hugepages-2Mi: 512Mi
+            memory: {{ .Values.asac.memory }}Mi
+            cpu: {{ .Values.asac.cpus }}
         livenessProbe:
           exec:
             command:
@@ -214,3 +238,224 @@ spec:
             - /tmp/lina_ready
           initialDelaySeconds: 60
           periodSeconds: 1
+
+---
+
+{{- if eq .Values.asac.enable_ha "true" }}
+# Deployment template for ASAc secondary pods
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.asac.app_name }}{{- if eq .Values.asac.enable_ha "true" }}-secondary{{- end }}
+  labels:
+    app: ASAC_SECONDARY
+    tier: asavc_secondary
+    role: secondary
+spec:
+  replicas: {{ .Values.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: ASAC_SECONDARY
+  template:
+    metadata:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: macvlan-mgmt-bridge, macvlan-fover-bridge, macvlan-data1-bridge, macvlan-data2-bridge 
+      labels:
+        app: ASAC_SECONDARY
+        role: secondary
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: ASAC_PRIMARY
+              topologyKey: kubernetes.io/hostname
+      volumes:
+      - name:  modulepath
+        hostPath:
+          path: /lib/modules
+      - name: local
+        hostPath:
+          path: /local/configvol
+      - name: hugepage
+        emptyDir:
+          medium: HugePages
+      - name: day0-config
+        configMap:
+          name: day0-config-secondary
+          optional: true
+          items:
+          - key: day0-config
+            path: day0-config
+      - name: interface-config
+        configMap:
+          name: interface-config
+          optional: true
+          items:
+          - key: interface-config
+            path: interface-config
+      - name: persistent-storage
+        persistentVolumeClaim:
+          claimName: lina-pvc-secondary
+      containers:
+      - name: asac
+        image: {{ .Values.asac.repository }}
+        stdin: true
+        tty: true
+        securityContext:
+          capabilities:
+                add: ["SYS_RESOURCE", "SYS_ADMIN", "NET_ADMIN"]
+          privileged: true
+        env:
+        - name: ASA_DOCKER
+          value: "1"
+        - name: ASAC_MEMORY
+          value: "{{ .Values.asac.memory }}M"
+        - name: ASAC_CPUS
+          value: {{ .Values.asac.cpus | quote }}
+        - name: ASAC_STANDALONE_MODE
+          value: "1"
+        - name: ASAC_ROOT_PRIVILEGE
+          value: "1"
+        volumeMounts:
+          - name: modulepath
+            mountPath: /lib/modules
+          - name: local
+            mountPath: /config
+          - mountPath: /hugepages
+            name: hugepage
+          - name: day0-config
+            mountPath: /asac-day0-config
+          - name: interface-config
+            mountPath: /mnt/disk0/interface-config
+          - name: persistent-storage
+            mountPath: /mnt/disk0/.private
+        resources:
+          limits:
+            hugepages-2Mi: 512Mi
+            memory: {{ .Values.asac.memory }}Mi
+            cpu: {{ .Values.asac.cpus }}
+          requests:
+            hugepages-2Mi: 512Mi
+            memory: {{ .Values.asac.memory }}Mi
+            cpu: {{ .Values.asac.cpus }}
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - -x
+            - lina
+          initialDelaySeconds: 30
+          periodSeconds: 1
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /tmp/lina_ready
+          initialDelaySeconds: 60
+          periodSeconds: 1
+{{- end }}
+
+
+---
+
+{{- if .Values.worker_nodes.persistence.lina.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.asac.app_name }}-cleanup-primary
+  labels:
+    app: {{ .Values.asac.app_name }}{{- if eq .Values.asac.enable_ha "true" }}-primary{{- end }}
+    role: primary-cleanup
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        job: {{ .Values.asac.app_name }}-cleanup-primary
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - ASAC_PRIMARY
+              topologyKey: kubernetes.io/hostname
+      restartPolicy: Never
+      volumes:
+      - name: lina-path
+        hostPath:
+          path: {{ .Values.worker_nodes.persistence.lina.hostPath }}
+          type: DirectoryOrCreate
+      containers:
+      - name: cleanup
+        image: busybox:latest
+        command: ["/bin/sh","-c"]
+        args:
+          - "rm -rf {{ .Values.worker_nodes.persistence.lina.hostPath }}  || true"
+        volumeMounts:
+        - name: lina-path
+          mountPath: {{ .Values.worker_nodes.persistence.lina.hostPath }}
+{{- end }}
+
+---
+
+{{- if and .Values.worker_nodes.persistence.lina.enabled (eq .Values.asac.enable_ha "true") }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.asac.app_name }}-cleanup-secondary
+  labels:
+    app: {{ .Values.asac.app_name }}{{- if eq .Values.asac.enable_ha "true" }}-secondary{{- end }}
+    role: secondary-cleanup
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        job: {{ .Values.asac.app_name }}-cleanup-secondary
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - ASAC_SECONDARY
+              topologyKey: kubernetes.io/hostname
+      restartPolicy: Never
+      volumes:
+      - name: lina-path
+        hostPath:
+          path: {{ .Values.worker_nodes.persistence.lina.hostPath }}
+          type: DirectoryOrCreate
+      containers:
+      - name: cleanup
+        image: busybox:latest
+        command: ["/bin/sh","-c"]
+        args:
+          - "rm -rf {{ .Values.worker_nodes.persistence.lina.hostPath }} || true"
+        volumeMounts:
+        - name: lina-path
+          mountPath: {{ .Values.worker_nodes.persistence.lina.hostPath }}
+{{- end }}
+
