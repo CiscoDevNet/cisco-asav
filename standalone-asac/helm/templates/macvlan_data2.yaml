@@ -14,17 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+{{- if eq .Values.asac.enable_sriov "false" }}
 # outside interface macvlan bridge
+
 apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
 metadata:
-   name: macvlan-out-bridge
+   name: macvlan-data2-bridge
 spec:
    config: |-
      {
         "cniVersion": "0.3.0",
         "type": "macvlan",
-        "master": "{{ .Values.asacOutsideInterface }}",
+        "master": "{{ .Values.worker_nodes.asacData2Interface }}",
         "mode": "bridge"
      }
-
+{{- end }}
