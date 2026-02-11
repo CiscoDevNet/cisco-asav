@@ -32,7 +32,7 @@
                 "description": "The Virtual Network address space"
             }
         },
-       "mgmtSubnet": {
+        "mgmtSubnet": {
             "type": "string",
             "defaultValue": "mgmt",
             "metadata": {
@@ -135,20 +135,21 @@
             }
         },
         "asaLicensingSku": {
-          "type" : "string",
-          "defaultValue" : "asav-azure-byol",
-          "allowedValues" : [
-              "asav-azure-byol",
-              "asav-azure-payg"
-          ],
-          "metadata" : {
-              "description" : "Licensing model (asav-azure-byol : Bring-your-own-license, asav-azure-payg : Pay-as-you-go)"
-          }
+            "type": "string",
+            "defaultValue": "byol",
+            "allowedValues": [
+                "byol",
+                "payg"
+            ],
+            "metadata": {
+                "description": "Licensing model (byol : Bring-your-own-license, payg : Pay-as-you-go)"
+            }
         },
         "softwareVersion": {
             "type": "string",
             "defaultValue": "9231.0.0",
             "allowedValues": [
+                "9.24.1",
                 "9231.0.0",
                 "92211.0.0",
                 "92037.0.0"
@@ -157,25 +158,42 @@
                 "description": "ASA Software version to use."
             }
         },
+        "enableSecureBoot": {
+            "type": "string",
+            "defaultValue": "false",
+            "allowedValues": [
+                "true",
+                "false"
+            ],
+            "metadata": {
+                "description": "[Only applicable for softwareVersion 9.24.1] Enable Secure Boot for UEFI-based deployment"
+            }
+        },
         "vmSize": {
-            "type" : "string",
-            "defaultValue" : "Standard_D4_v2",
-            "allowedValues" : [
+            "type": "string",
+            "defaultValue": "Standard_D4_v2",
+            "allowedValues": [
+                "Standard_D3",
                 "Standard_D3_v2",
+                "Standard_DS3",
+                "Standard_DS3_v2",
+                "Standard_D4",
                 "Standard_D4_v2",
+                "Standard_DS4",
+                "Standard_DS4_v2",
                 "Standard_D5_v2",
+                "Standard_DS5_v2",
                 "Standard_D8_v3",
                 "Standard_D16_v3",
                 "Standard_D8s_v3",
                 "Standard_D16s_v3",
-                "Standard_DS3_v2",
-                "Standard_DS4_v2",
-                "Standard_DS5_v2",
+                "Standard_D8s_v5",
+                "Standard_D16s_v5",
                 "Standard_F4",
-                "Standard_F8",
-                "Standard_F16",
                 "Standard_F4s",
+                "Standard_F8",
                 "Standard_F8s",
+                "Standard_F16",
                 "Standard_F16s",
                 "Standard_F8s_v2",
                 "Standard_F16s_v2"
@@ -198,18 +216,29 @@
                 "description": "Password for ASAv 'admin' user (Passwords must be 12 to 72 characters long, must have : lowercase, uppercase, numbers & special characters and must have no more than 2 repeating characters)"
             }
         },
+        "autoscaling": {
+            "type": "string",
+            "defaultValue": "Enable",
+            "allowedValues": [
+                "Enable",
+                "Disable"
+            ],
+            "metadata": {
+                "description": "Enable or Disable autoscaling functionality"
+            }
+        },
         "scaleInThreshold": {
             "type": "string",
             "defaultValue": "10",
             "metadata": {
-                "description": "Scale-IN threshold in %"
+                "description": "[Only used when Autoscaling is Enabled] Scale-IN threshold in %"
             }
         },
         "scaleOutThreshold": {
             "type": "string",
             "defaultValue": "80",
             "metadata": {
-                "description": "Scale-OUT threshold in %"
+                "description": "[Only used when Autoscaling is Enabled] Scale-OUT threshold in %"
             }
         },
         "asavClusterSize": {
@@ -231,7 +260,7 @@
                 "30"
             ],
             "metadata": {
-                "description": "Duration in minutes for which metrics samples are collected and averaged"
+                "description": "[Only used when Autoscaling is Enabled] Duration in minutes for which metrics samples are collected and averaged"
             }
         },
         "initDeploymentMode": {
@@ -253,7 +282,7 @@
                 "POLICY-2"
             ],
             "metadata": {
-                "description": "Scaling Policy.. Refer user guide for details"
+                "description": "[Only used when Autoscaling is Enabled] Scaling Policy.. Refer user guide for details"
             }
         },
         "licenseThroughput": {
@@ -278,33 +307,33 @@
             }
         },
         "asavConfigFileUrl": {
-          "type": "string",
-          "defaultValue" : "",
-          "metadata": {
-            "description": "Optional ASAv configuration file path : example - https://path_to_asav_config_file/config_file. Make sure the configuration file is accessible from the ASAv."
-          }
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Optional ASAv configuration file path : example - https://path_to_asav_config_file/config_file. Make sure the configuration file is accessible from the ASAv."
+            }
         }
     },
     "variables": {
         "networkApiVersion": "2023-09-01",
         "webApiVersion": "2022-09-01",
         "logicAppName": "[concat(parameters('resourceNamePrefix'),'-logic-app')]",
-        "elbName":      "[concat(parameters('resourceNamePrefix'),'-elb')]",
-        "ilbName":      "[concat(parameters('resourceNamePrefix'),'-ilb')]",
-        "dataSecGrp":   "[concat(parameters('resourceNamePrefix'),'-dataIntfSecGrp')]",
-        "mgmtSecGrp":   "[concat(parameters('resourceNamePrefix'),'-mgmtIntfSecGrp')]",
-        "elbId":        "[resourceId('Microsoft.Network/loadBalancers',variables('elbName'))]",
-        "elbPublicIpName":  "[concat(variables('elbName'),'-public-ip')]",
-        "ilbId":        "[resourceId('Microsoft.Network/loadBalancers',variables('ilbName'))]",
-        "vnetId":       "[resourceId(parameters('virtualNetworkRg'),'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]",
+        "elbName": "[concat(parameters('resourceNamePrefix'),'-elb')]",
+        "ilbName": "[concat(parameters('resourceNamePrefix'),'-ilb')]",
+        "dataSecGrp": "[concat(parameters('resourceNamePrefix'),'-dataIntfSecGrp')]",
+        "mgmtSecGrp": "[concat(parameters('resourceNamePrefix'),'-mgmtIntfSecGrp')]",
+        "elbId": "[resourceId('Microsoft.Network/loadBalancers',variables('elbName'))]",
+        "elbPublicIpName": "[concat(variables('elbName'),'-public-ip')]",
+        "ilbId": "[resourceId('Microsoft.Network/loadBalancers',variables('ilbName'))]",
+        "vnetId": "[resourceId(parameters('virtualNetworkRg'),'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]",
         "mgmtSubnetId": "[concat(variables('vnetID'),'/subnets/', parameters('mgmtSubnet'))]",
-        "insideSubnetId":   "[concat(variables('vnetID'),'/subnets/', parameters('insideSubnet'))]",
-        "outsideSubnetId":  "[concat(variables('vnetID'),'/subnets/', parameters('outsideSubnet'))]",
-        "cclSubnetId":  "[concat(variables('vnetID'),'/subnets/', parameters('cclSubnet'))]",
-        "functionAppName":"[concat(parameters('resourceNamePrefix'),'-function-app')]",
-        "functionAppId":    "[concat(resourceGroup().id,'/providers/','Microsoft.Web/sites/', variables('functionAppName'))]",
-        "functionWorkerRuntime":    "python",
-        "appInsightsName":"[concat(parameters('resourceNamePrefix'),'-appinsight')]",
+        "insideSubnetId": "[concat(variables('vnetID'),'/subnets/', parameters('insideSubnet'))]",
+        "outsideSubnetId": "[concat(variables('vnetID'),'/subnets/', parameters('outsideSubnet'))]",
+        "cclSubnetId": "[concat(variables('vnetID'),'/subnets/', parameters('cclSubnet'))]",
+        "functionAppName": "[concat(parameters('resourceNamePrefix'),'-function-app')]",
+        "functionAppId": "[concat(resourceGroup().id,'/providers/','Microsoft.Web/sites/', variables('functionAppName'))]",
+        "functionWorkerRuntime": "python",
+        "appInsightsName": "[concat(parameters('resourceNamePrefix'),'-appinsight')]",
         "appInsightsSourceName": "IbizaWebAppExtensionCreate",
         "hostingPlanName": "[concat(parameters('resourceNamePrefix'),'-hostingPlan')]",
         "functionHostingPlanType": "[parameters('functionHostingPlan')]",
@@ -312,27 +341,46 @@
         "natGatewayName": "[concat(parameters('resourceNamePrefix'),'-nat-gw')]",
         "functionAppSubnetId": "[resourceId(parameters('virtualNetworkRg'), 'Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('functionAppSubnet'))]",
         "functionAppSubnetDeployment": "[concat(parameters('resourceNamePrefix'),'-functionAppSubnetDeployment')]",
-        "storageAccountName":   "[concat(parameters('resourceNamePrefix'), uniquestring(resourceGroup().id))]",
+        "storageAccountName": "[concat(parameters('resourceNamePrefix'), uniquestring(resourceGroup().id))]",
         "storageAccountid": "[concat(resourceGroup().id,'/providers/','Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]",
-        "vmssName":     "[concat(parameters('resourceNamePrefix'),'-vmss')]",
-        "vmssVmMgmtNicName":    "mgmtNic",
-        "vmssVmInsideNicName":  "insideNic",
+        "vmssName": "[concat(parameters('resourceNamePrefix'),'-vmss')]",
+        "vmssVmMgmtNicName": "mgmtNic",
+        "vmssVmInsideNicName": "insideNic",
         "vmssVmOutsideNicName": "outsideNic",
         "vmssVmCclNicName": "cclNic",
         "idleTimeoutInMinutes": 30,
         "systopicname": "[concat(parameters('resourceNamePrefix'),'-systopic')]",
-        "queuename":    "resourceactionsuccessqueue",
-        "esubname":     "[concat(parameters('resourceNamePrefix'),'-esub')]",
-        "role1":        "[guid(resourceGroup().id,subscription().subscriptionId,'role1')]",
-        "role2":        "[guid(resourceGroup().id,subscription().subscriptionId,'role2')]",
-        "role3":        "[guid(resourceGroup().id,subscription().subscriptionId,'role3')]",
-        "sku":              "[parameters('asaLicensingSku')]",
-        "publisher":        "cisco",
-        "offer":            "cisco-asav",
+        "queuename": "resourceactionsuccessqueue",
+        "esubname": "[concat(parameters('resourceNamePrefix'),'-esub')]",
+        "role1": "[guid(resourceGroup().id,subscription().subscriptionId,'role1')]",
+        "role2": "[guid(resourceGroup().id,subscription().subscriptionId,'role2')]",
+        "role3": "[guid(resourceGroup().id,subscription().subscriptionId,'role3')]",
+        "publisher": "cisco",
+        "offer": "cisco-asav",
         "osUserName": "waagentuser",
-        "smartLicenseRegister": "[if(and(not(equals(parameters('smartLicenseToken'), '')), equals(parameters('asaLicensingSku'), 'asav-azure-byol')), true, false)]",
-        "performLicenseCheck": "[if(or(variables('smartLicenseRegister'), equals(parameters('asaLicensingSku'), 'asav-azure-payg')), true, false)]",
-        "userData": "[concat('cluster interface-mode individual force\npolicy-map global_policy\nclass inspection_default\nno inspect h323 h225\nno inspect h323 ras\nno inspect rtsp\nno inspect skinny\n\ninterface Management0/0\nmanagement-only\nnameif management\nsecurity-level 100\nip address dhcp setroute\nno shutdown\n\ninterface GigabitEthernet0/0\nnameif inside\nsecurity-level 100\nip address dhcp\nno shutdown\n\ninterface GigabitEthernet0/1\nnameif outside\nsecurity-level 0\nip address dhcp\nno shutdown\n\ninterface GigabitEthernet0/2\nnve-only cluster\nnameif ccl_link\nsecurity-level 0\nip address dhcp\nno shutdown\n\ncrypto key generate rsa modulus 2048\nssh 0 0 management\nssh 0 0 outside\nssh timeout 60\nssh version 2\naaa authentication ssh console LOCAL\naaa authentication listener http outside port ', parameters('healthCheckPortNumber'),'\n\ninterface vni1\ndescription ClusterInterface\nsegment-id 1\nvtep-nve 1\n\nroute outside 0.0.0.0 0.0.0.0 ', parameters('outsideNetworkGatewayIp'),' 2\nroute inside 0.0.0.0 0.0.0.0 ', parameters('insideNetworkGatewayIp'),' 3\n\nobject network ccl_link\nrange ', parameters('cclSubnetStartAddr'), ' ', parameters('cclSubnetEndAddr'),'\nobject-group network cluster_group\nnetwork-object object ccl_link\n\nnve 1\nencapsulation vxlan\nsource-interface ccl_link\npeer-group cluster_group\n\nmtu inside 1300\nmtu outside 1300\nmtu ccl_link 1454\n\nsysopt connection tcpmss 1200\n\nsame-security-traffic permit inter-interface\nsame-security-traffic permit intra-interface\n\nusername ', parameters('asaAdminUserName'), ' password ', parameters('asaAdminUserPassword'), ' privilege 15\nenable password ', parameters('asaAdminUserPassword'), ' level 15\n\ndns domain-lookup management\ndns server-group DefaultDNS\nname-server 8.8.8.8 management\n\n', if(equals(variables('performLicenseCheck'), true), concat('\ncall-home\nprofile license\ndestination transport-method http\ndestination address http https://tools.cisco.com/its/service/oddce/services/DDCEService\ndebug menu license 25 production\nlicense smart\nfeature tier standard\nthroughput level ', parameters('licenseThroughput'), '\nlicense smart register idtoken ', parameters('smartLicenseToken')), ''), '\nwrite memory\n')]"
+        "byolLicense": "byol",
+        "paygLicense": "payg",
+        "gen1Byol": "asav-azure-byol",
+        "gen1Payg": "asav-azure-payg",
+        "gen2Byol": "cisco-asav-x86-byol",
+        "gen2Payg": "cisco-asav-x86-payg",
+        "uefiVersion": [
+            "9.24.1"
+        ],
+        "isUefiVersion": "[contains(variables('uefiVersion'), parameters('softwareVersion'))]",
+        "sku": "[if(variables('isUefiVersion'), if(equals(parameters('asaLicensingSku'), variables('byolLicense')), variables('gen2Byol'), variables('gen2Payg')), if(equals(parameters('asaLicensingSku'), variables('byolLicense')), variables('gen1Byol'), variables('gen1Payg')))]",
+        "byolSku": "[if(variables('isUefiVersion'), variables('gen2Byol'), variables('gen1Byol'))]",
+        "paygSku": "[if(variables('isUefiVersion'), variables('gen2Payg'), variables('gen1Payg'))]",
+        "securityType": "[if(and(variables('isUefiVersion'), equals(parameters('enableSecureBoot'), 'true')), 'TrustedLaunch', 'Standard')]",
+        "secureBoot": "[if(and(variables('isUefiVersion'), equals(parameters('enableSecureBoot'), 'true')), 'true', 'false')]",
+        "vTpm": "false",
+        "securityProfileBlock": "[if(and(variables('isUefiVersion'), equals(parameters('enableSecureBoot'), 'true')), json(concat('{','\"securityType\": \"', variables('securityType'), '\",','\"uefiSettings\": {','\"secureBootEnabled\": ', toLower(variables('secureBoot')), ',','\"vTpmEnabled\": ', toLower(variables('vTpm')),'}','}')), json('null'))]",
+        "tokenProvided": "[not(equals(parameters('smartLicenseToken'), ''))]",
+        "isByol": "[equals(parameters('asaLicensingSku'), 'byol')]",
+        "smartLicenseRegister": "[and(variables('tokenProvided'), variables('isByol'))]",
+        "performLicenseCheck": "[or(variables('smartLicenseRegister'), equals(parameters('asaLicensingSku'), 'payg'))]",
+        "licenseBlock": "[if(variables('performLicenseCheck'), concat('\ncall-home\nprofile license\ndestination transport-method http\ndestination address http https://tools.cisco.com/its/service/oddce/services/DDCEService\ndebug menu license 25 production\nlicense smart\nfeature tier standard\nthroughput level ', parameters('licenseThroughput'), '\nlicense smart register idtoken ', parameters('smartLicenseToken')), '')]",
+        "userData": "[concat('cluster interface-mode individual force\npolicy-map global_policy\nclass inspection_default\nno inspect h323 h225\nno inspect h323 ras\nno inspect rtsp\nno inspect skinny\n\ninterface Management0/0\nmanagement-only\nnameif management\nsecurity-level 100\nip address dhcp setroute\nno shutdown\n\ninterface GigabitEthernet0/0\nnameif inside\nsecurity-level 100\nip address dhcp\nno shutdown\n\ninterface GigabitEthernet0/1\nnameif outside\nsecurity-level 0\nip address dhcp\nno shutdown\n\ninterface GigabitEthernet0/2\nnve-only cluster\nnameif ccl_link\nsecurity-level 0\nip address dhcp\nno shutdown\n\ncrypto key generate rsa modulus 2048\nssh 0 0 management\nssh 0 0 outside\nssh timeout 60\nssh version 2\naaa authentication ssh console LOCAL\naaa authentication listener http outside port ', parameters('healthCheckPortNumber'),'\n\ninterface vni1\ndescription ClusterInterface\nsegment-id 1\nvtep-nve 1\n\nroute outside 0.0.0.0 0.0.0.0 ', parameters('outsideNetworkGatewayIp'),' 2\nroute inside 0.0.0.0 0.0.0.0 ', parameters('insideNetworkGatewayIp'),' 3\n\nobject network ccl_link\nrange ', parameters('cclSubnetStartAddr'), ' ', parameters('cclSubnetEndAddr'),'\nobject-group network cluster_group\nnetwork-object object ccl_link\n\nnve 1\nencapsulation vxlan\nsource-interface ccl_link\npeer-group cluster_group\n\nmtu inside 1300\nmtu outside 1300\nmtu ccl_link 1454\n\nsysopt connection tcpmss 1200\n\nsame-security-traffic permit inter-interface\nsame-security-traffic permit intra-interface\n\nusername ', parameters('asaAdminUserName'), ' password ', parameters('asaAdminUserPassword'), ' privilege 15\nenable password ', parameters('asaAdminUserPassword'), ' level 15\n\ndns domain-lookup management\ndns server-group DefaultDNS\nname-server 8.8.8.8 management\n\n', variables('licenseBlock'), '\nwrite memory\n')]"
     },
     "resources": [
         {
@@ -437,6 +485,9 @@
             "kind": "StorageV2",
             "sku": {
                 "name": "Standard_LRS"
+            },
+            "properties": {
+                "minimumTlsVersion": "TLS1_2"
             }
         },
         {
@@ -639,8 +690,8 @@
                             "value": "true"
                         },
                         {
-                           "name": "RESOURCE_PREFIX",
-                           "value": "[parameters('resourceNamePrefix')]"
+                            "name": "RESOURCE_PREFIX",
+                            "value": "[parameters('resourceNamePrefix')]"
                         },
                         {
                             "name": "ANY_IPV4_NAME",
@@ -677,6 +728,10 @@
                         {
                             "name": "OUTSIDE_NETWORK_GATEWAY",
                             "value": "[parameters('outsideNetworkGatewayIp')]"
+                        },
+                        {
+                            "name": "AUTOSCALING",
+                            "value": "[parameters('autoscaling')]"
                         },
                         {
                             "name": "SCALE_IN_THRESHOLD",
@@ -726,7 +781,7 @@
                             "name": "RESOURCE_GROUP_NAME",
                             "value": "[resourceGroup().name]"
                         },
-          			    {
+                        {
                             "name": "SUBSCRIPTION_ID",
                             "value": "[subscription().subscriptionId]"
                         },
@@ -743,12 +798,12 @@
                             "value": "[variables('vmssVmMgmtNicName')]"
                         },
                         {
-                          "name": "ASAV_CONFIG_FILE",
-                          "value": "[parameters('asavConfigFileUrl')]"
+                            "name": "ASAV_CONFIG_FILE",
+                            "value": "[parameters('asavConfigFileUrl')]"
                         },
                         {
                             "name": "PERFORM_LICENSE_CHECK",
-                            "value": "[if(equals(variables('performLicenseCheck'), true), 'YES', 'NO')]"
+                            "value": "[if(variables('performLicenseCheck'), 'YES', 'NO')]"
                         },
                         {
                             "name": "DELETE_FAULTY_ASA",
@@ -902,7 +957,8 @@
                 "[concat('Microsoft.Network/loadBalancers/', variables('elbName'))]",
                 "[concat('Microsoft.Network/loadBalancers/', variables('ilbName'))]",
                 "[concat('Microsoft.Network/networkSecurityGroups/',variables('mgmtSecGrp'))]",
-                "[concat('Microsoft.Network/networkSecurityGroups/',variables('dataSecGrp'))]"
+                "[concat('Microsoft.Network/networkSecurityGroups/',variables('dataSecGrp'))]",
+                "[concat('Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]"
             ],
             "sku": {
                 "name": "[parameters('vmSize')]",
@@ -943,6 +999,7 @@
                             "storageUri": "[concat('https://',variables('storageAccountName'),'.blob.core.windows.net')]"
                         }
                     },
+                    "securityProfile": "[variables('securityProfileBlock')]",
                     "networkProfile": {
                         "networkInterfaceConfigurations": [
                             {
@@ -1051,11 +1108,13 @@
             "apiVersion": "2022-04-01",
             "name": "[variables('role1')]",
             "dependsOn": [
-                "[resourceID('Microsoft.Compute/virtualMachineScaleSets', variables('vmssName'))]"
+                "[resourceID('Microsoft.Compute/virtualMachineScaleSets', variables('vmssName'))]",
+                "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
             ],
             "properties": {
                 "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
-                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2016-03-01', 'Full').identity.principalId]"
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2016-03-01', 'Full').identity.principalId]",
+                "principalType": "ServicePrincipal"
             }
         },
         {
@@ -1063,11 +1122,13 @@
             "apiVersion": "2022-04-01",
             "name": "[variables('role2')]",
             "dependsOn": [
-                "[resourceID('Microsoft.Compute/virtualMachineScaleSets', variables('vmssName'))]"
+                "[resourceID('Microsoft.Compute/virtualMachineScaleSets', variables('vmssName'))]",
+                "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
             ],
             "properties": {
                 "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')]",
-                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2016-03-01', 'Full').identity.principalId]"
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2016-03-01', 'Full').identity.principalId]",
+                "principalType": "ServicePrincipal"
             }
         }
     ]
