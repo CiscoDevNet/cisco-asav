@@ -150,19 +150,20 @@
         },
         "asaLicensingSku": {
             "type": "string",
-            "defaultValue": "asav-azure-byol",
+            "defaultValue": "byol",
             "allowedValues": [
-                "asav-azure-byol",
-                "asav-azure-payg"
+                "byol",
+                "payg"
             ],
             "metadata": {
-                "description": "Licensing model (asav-azure-byol : Bring-your-own-license, asav-azure-payg : Pay-as-you-go)"
+                "description": "Licensing model (byol : Bring-your-own-license, payg : Pay-as-you-go)"
             }
         },
         "softwareVersion": {
             "type": "string",
             "defaultValue": "9231.0.0",
             "allowedValues": [
+                "9.24.1",
                 "9231.0.0",
                 "92211.0.0",
                 "92037.0.0"
@@ -171,25 +172,42 @@
                 "description": "ASA Software version to use."
             }
         },
+        "enableSecureBoot": {
+            "type": "string",
+            "defaultValue": "false",
+            "allowedValues": [
+                "true",
+                "false"
+            ],
+            "metadata": {
+                "description": "[Only applicable for softwareVersion 9.24.1] Enable Secure Boot for UEFI-based deployment"
+            }
+        },
         "vmSize": {
             "type": "string",
             "defaultValue": "Standard_D3_v2",
             "allowedValues": [
+                "Standard_D3",
                 "Standard_D3_v2",
+                "Standard_DS3",
+                "Standard_DS3_v2",
+                "Standard_D4",
                 "Standard_D4_v2",
+                "Standard_DS4",
+                "Standard_DS4_v2",
                 "Standard_D5_v2",
+                "Standard_DS5_v2",
                 "Standard_D8_v3",
                 "Standard_D16_v3",
                 "Standard_D8s_v3",
                 "Standard_D16s_v3",
-                "Standard_DS3_v2",
-                "Standard_DS4_v2",
-                "Standard_DS5_v2",
+                "Standard_D8s_v5",
+                "Standard_D16s_v5",
                 "Standard_F4",
-                "Standard_F8",
-                "Standard_F16",
                 "Standard_F4s",
+                "Standard_F8",
                 "Standard_F8s",
+                "Standard_F16",
                 "Standard_F16s",
                 "Standard_F8s_v2",
                 "Standard_F16s_v2"
@@ -212,6 +230,17 @@
                 "description": "Password for ASAv 'admin' user (Passwords must be 12 to 72 characters long, must have : lowercase, uppercase, numbers & special characters and must have no more than 2 repeating characters)"
             }
         },
+        "autoscaling": {
+            "type": "string",
+            "defaultValue": "Enable",
+            "allowedValues": [
+                "Enable",
+                "Disable"
+            ],
+            "metadata": {
+                "description": "Enable or Disable autoscaling functionality"
+            }
+        },
         "scaleInThreshold": {
             "type": "string",
             "defaultValue": "10",
@@ -223,7 +252,7 @@
             "type": "string",
             "defaultValue": "80",
             "metadata": {
-                "description": "Scale-OUT threshold in %"
+                "description": "[Only used when Autoscaling is Enabled] Scale-OUT threshold in %"
             }
         },
         "asavClusterSize": {
@@ -245,7 +274,7 @@
                 "30"
             ],
             "metadata": {
-                "description": "Duration in minutes for which metrics samples are collected and averaged"
+                "description": "[Only used when Autoscaling is Enabled] Duration in minutes for which metrics samples are collected and averaged"
             }
         },
         "initDeploymentMode": {
@@ -267,7 +296,7 @@
                 "POLICY-2"
             ],
             "metadata": {
-                "description": "Scaling Policy.. Refer user guide for details"
+                "description": "[Only used when Autoscaling is Enabled] Scaling Policy.. Refer user guide for details"
             }
         },
         "licenseThroughput": {
@@ -292,11 +321,11 @@
             }
         },
         "asavConfigFileUrl": {
-          "type": "string",
-          "defaultValue" : "",
-          "metadata": {
-            "description": "Optional ASAv configuration file path : example - https://path_to_asav_config_file/config_file. Make sure the configuration file is accessible from the ASAv."
-          }
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Optional ASAv configuration file path : example - https://path_to_asav_config_file/config_file. Make sure the configuration file is accessible from the ASAv."
+            }
         }
     },
     "variables": {
@@ -332,7 +361,6 @@
         "idleTimeoutInMinutes": 30,
         "publisher": "cisco",
         "offer": "cisco-asav",
-        "sku": "[parameters('asaLicensingSku')]",
         "functionWorkerRuntime": "python",
         "esubname": "[concat(parameters('resourceNamePrefix'),'-esub')]",
         "role1": "[guid(resourceGroup().id,subscription().subscriptionId,'role1')]",
@@ -340,9 +368,29 @@
         "tunnelPortRange": "[concat(parameters('internalPortNumber'),'-',parameters('externalPortNumber'))]",
         "functionHostingPlanType": "[parameters('functionHostingPlan')]",
         "osUserName": "waagentuser",
-        "smartLicenseRegister": "[if(and(not(equals(parameters('smartLicenseToken'), '')), equals(parameters('asaLicensingSku'), 'asav-azure-byol')), true, false)]",
-        "performLicenseCheck": "[if(or(variables('smartLicenseRegister'), equals(parameters('asaLicensingSku'), 'asav-azure-payg')), true, false)]",
-        "userData": "[concat('cluster interface-mode individual force\npolicy-map global_policy\nclass inspection_default\nno inspect h323 h225\nno inspect h323 ras\nno inspect rtsp\nno inspect skinny\n\ninterface Management0/0\nmanagement-only\nnameif management\nsecurity-level 100\nip address dhcp setroute\nno shutdown\n\ninterface GigabitEthernet0/0\nnameif vxlan_tunnel\nsecurity-level 0\nip address dhcp\nno shutdown\n\ninterface GigabitEthernet0/1\nnve-only cluster\nnameif ccl_link\nsecurity-level 0\nip address dhcp\nno shutdown\n\ncrypto key generate rsa modulus 2048\nssh 0 0 management\nssh timeout 60\nssh version 2\naaa authentication ssh console LOCAL\naaa authentication listener http vxlan_tunnel port ', parameters('healthCheckPortNumber'),'\n\ninterface vni1\ndescription ClusterInterface\nsegment-id 1\nvtep-nve 1\n\ninterface vni2\nproxy paired\nnameif GWLB-backend-pool\ninternal-segment-id ', parameters('internalSegmentId'),'\nexternal-segment-id ', parameters('externalSegmentId'),'\ninternal-port ', parameters('internalPortNumber'),'\nexternal-port ', parameters('externalPortNumber'),'\nsecurity-level 0\nvtep-nve 2\n\nobject network ccl_link\nrange ', parameters('cclSubnetStartAddr'), ' ', parameters('cclSubnetEndAddr'),'\nobject-group network cluster_group\nnetwork-object object ccl_link\n\nnve 1\nencapsulation vxlan\nsource-interface ccl_link\npeer-group cluster_group\n\nnve 2\nencapsulation vxlan\nsource-interface vxlan_tunnel\npeer ip ', parameters('gatewayLoadBalancerIP'), '\n\nmtu vxlan_tunnel 1374\nmtu ccl_link 1454\nsysopt connection tcpmss 1200\n\nssh 168.63.129.0 255.255.255.0 vxlan_tunnel\nroute vxlan_tunnel 0.0.0.0 0.0.0.0 ', parameters('dataNetworkGatewayIp'), ' 2\n\nsame-security-traffic permit inter-interface\nsame-security-traffic permit intra-interface\n\nusername ', parameters('asaAdminUserName'), ' password ', parameters('asaAdminUserPassword'), ' privilege 15\nenable password ', parameters('asaAdminUserPassword'), ' level 15\n\ndns domain-lookup management\ndns server-group DefaultDNS\nname-server 8.8.8.8 management\n\n', if(equals(variables('performLicenseCheck'), true), concat('\ncall-home\nprofile license\ndestination transport-method http\ndestination address http https://tools.cisco.com/its/service/oddce/services/DDCEService\ndebug menu license 25 production\nlicense smart\nfeature tier standard\nthroughput level ', parameters('licenseThroughput'), '\nlicense smart register idtoken ', parameters('smartLicenseToken')), ''), '\nwrite memory\n')]"
+        "byolLicense": "byol",
+        "paygLicense": "payg",
+        "gen1Byol": "asav-azure-byol",
+        "gen1Payg": "asav-azure-payg",
+        "gen2Byol": "cisco-asav-x86-byol",
+        "gen2Payg": "cisco-asav-x86-payg",
+        "uefiVersion": [
+            "9.24.1"
+        ],
+        "isUefiVersion": "[contains(variables('uefiVersion'), parameters('softwareVersion'))]",
+        "sku": "[if(variables('isUefiVersion'), if(equals(parameters('asaLicensingSku'), variables('byolLicense')), variables('gen2Byol'), variables('gen2Payg')), if(equals(parameters('asaLicensingSku'), variables('byolLicense')), variables('gen1Byol'), variables('gen1Payg')))]",
+        "byolSku": "[if(variables('isUefiVersion'), variables('gen2Byol'), variables('gen1Byol'))]",
+        "paygSku": "[if(variables('isUefiVersion'), variables('gen2Payg'), variables('gen1Payg'))]",
+        "securityType": "[if(and(variables('isUefiVersion'), equals(parameters('enableSecureBoot'), 'true')), 'TrustedLaunch', 'Standard')]",
+        "secureBoot": "[if(and(variables('isUefiVersion'), equals(parameters('enableSecureBoot'), 'true')), 'true', 'false')]",
+        "vTpm": "false",
+        "securityProfileBlock": "[if(and(variables('isUefiVersion'), equals(parameters('enableSecureBoot'), 'true')), json(concat('{','\"securityType\": \"', variables('securityType'), '\",','\"uefiSettings\": {','\"secureBootEnabled\": ', toLower(variables('secureBoot')), ',','\"vTpmEnabled\": ', toLower(variables('vTpm')),'}','}')), json('null'))]",
+        "tokenProvided": "[not(equals(parameters('smartLicenseToken'), ''))]",
+        "isByol": "[equals(parameters('asaLicensingSku'), 'byol')]",
+        "smartLicenseRegister": "[and(variables('tokenProvided'), variables('isByol'))]",
+        "performLicenseCheck": "[or(variables('smartLicenseRegister'), equals(parameters('asaLicensingSku'), 'payg'))]",
+        "licenseBlock": "[if(variables('performLicenseCheck'), concat('\ncall-home\nprofile license\ndestination transport-method http\ndestination address http https://tools.cisco.com/its/service/oddce/services/DDCEService\ndebug menu license 25 production\nlicense smart\nfeature tier standard\nthroughput level ', parameters('licenseThroughput'), '\nlicense smart register idtoken ', parameters('smartLicenseToken')), '')]",
+        "userData": "[concat('cluster interface-mode individual force\npolicy-map global_policy\nclass inspection_default\nno inspect h323 h225\nno inspect h323 ras\nno inspect rtsp\nno inspect skinny\n\ninterface Management0/0\nmanagement-only\nnameif management\nsecurity-level 100\nip address dhcp setroute\nno shutdown\n\ninterface GigabitEthernet0/0\nnameif vxlan_tunnel\nsecurity-level 0\nip address dhcp\nno shutdown\n\ninterface GigabitEthernet0/1\nnve-only cluster\nnameif ccl_link\nsecurity-level 0\nip address dhcp\nno shutdown\n\ncrypto key generate rsa modulus 2048\nssh 0 0 management\nssh timeout 60\nssh version 2\naaa authentication ssh console LOCAL\naaa authentication listener http vxlan_tunnel port ', parameters('healthCheckPortNumber'),'\n\ninterface vni1\ndescription ClusterInterface\nsegment-id 1\nvtep-nve 1\n\ninterface vni2\nproxy paired\nnameif GWLB-backend-pool\ninternal-segment-id ', parameters('internalSegmentId'),'\nexternal-segment-id ', parameters('externalSegmentId'),'\ninternal-port ', parameters('internalPortNumber'),'\nexternal-port ', parameters('externalPortNumber'),'\nsecurity-level 0\nvtep-nve 2\n\nobject network ccl_link\nrange ', parameters('cclSubnetStartAddr'), ' ', parameters('cclSubnetEndAddr'),'\nobject-group network cluster_group\nnetwork-object object ccl_link\n\nnve 1\nencapsulation vxlan\nsource-interface ccl_link\npeer-group cluster_group\n\nnve 2\nencapsulation vxlan\nsource-interface vxlan_tunnel\npeer ip ', parameters('gatewayLoadBalancerIP'), '\n\nmtu vxlan_tunnel 1374\nmtu ccl_link 1454\nsysopt connection tcpmss 1200\n\nssh 168.63.129.0 255.255.255.0 vxlan_tunnel\nroute vxlan_tunnel 0.0.0.0 0.0.0.0 ', parameters('dataNetworkGatewayIp'), ' 2\n\nsame-security-traffic permit inter-interface\nsame-security-traffic permit intra-interface\n\nusername ', parameters('asaAdminUserName'), ' password ', parameters('asaAdminUserPassword'), ' privilege 15\nenable password ', parameters('asaAdminUserPassword'), ' level 15\n\ndns domain-lookup management\ndns server-group DefaultDNS\nname-server 8.8.8.8 management\n\n', variables('licenseBlock'), '\nwrite memory\n')]"
     },
     "resources": [
         {
@@ -461,6 +509,9 @@
             "kind": "StorageV2",
             "sku": {
                 "name": "Standard_LRS"
+            },
+            "properties": {
+                "minimumTlsVersion": "TLS1_2"
             }
         },
         {
@@ -663,8 +714,8 @@
                             "value": "true"
                         },
                         {
-                           "name": "RESOURCE_PREFIX",
-                           "value": "[parameters('resourceNamePrefix')]"
+                            "name": "RESOURCE_PREFIX",
+                            "value": "[parameters('resourceNamePrefix')]"
                         },
                         {
                             "name": "ANY_IPV4_NAME",
@@ -701,6 +752,10 @@
                         {
                             "name": "OUTSIDE_NETWORK_GATEWAY",
                             "value": "[parameters('dataNetworkGatewayIp')]"
+                        },
+                        {
+                            "name": "AUTOSCALING",
+                            "value": "[parameters('autoscaling')]"
                         },
                         {
                             "name": "SCALE_IN_THRESHOLD",
@@ -750,7 +805,7 @@
                             "name": "RESOURCE_GROUP_NAME",
                             "value": "[resourceGroup().name]"
                         },
-          			    {
+                        {
                             "name": "SUBSCRIPTION_ID",
                             "value": "[subscription().subscriptionId]"
                         },
@@ -763,28 +818,28 @@
                             "value": "YES"
                         },
                         {
-                          "name": "TUNNEL_PORT_INTERNAL",
-                          "value": "[parameters('internalPortNumber')]"
+                            "name": "TUNNEL_PORT_INTERNAL",
+                            "value": "[parameters('internalPortNumber')]"
                         },
                         {
-                          "name": "TUNNEL_IDENTIFIER_INTERNAL",
-                          "value": "[parameters('internalSegmentId')]"
+                            "name": "TUNNEL_IDENTIFIER_INTERNAL",
+                            "value": "[parameters('internalSegmentId')]"
                         },
                         {
-                          "name": "TUNNEL_PORT_EXTERNAL",
-                          "value": "[parameters('externalPortNumber')]"
+                            "name": "TUNNEL_PORT_EXTERNAL",
+                            "value": "[parameters('externalPortNumber')]"
                         },
                         {
-                          "name": "TUNNEL_IDENTIFIER_EXTERNAL",
-                          "value": "[parameters('externalSegmentId')]"
+                            "name": "TUNNEL_IDENTIFIER_EXTERNAL",
+                            "value": "[parameters('externalSegmentId')]"
                         },
                         {
                             "name": "VXLAN_ENCAP_PORT_FOR_VTEP",
                             "value": "4789"
                         },
                         {
-                          "name": "GWLB_IP_ADDRESS",
-                          "value": "[parameters('gatewayLoadBalancerIP')]"
+                            "name": "GWLB_IP_ADDRESS",
+                            "value": "[parameters('gatewayLoadBalancerIP')]"
                         },
                         {
                             "name": "MNGT_IP_CONFIG_NAME",
@@ -795,12 +850,12 @@
                             "value": "mgmtNic"
                         },
                         {
-                          "name": "ASAV_CONFIG_FILE",
-                          "value": "[parameters('asavConfigFileUrl')]"
+                            "name": "ASAV_CONFIG_FILE",
+                            "value": "[parameters('asavConfigFileUrl')]"
                         },
                         {
                             "name": "PERFORM_LICENSE_CHECK",
-                            "value": "[if(equals(variables('performLicenseCheck'), true), 'YES', 'NO')]"
+                            "value": "[if(variables('performLicenseCheck'), 'YES', 'NO')]"
                         },
                         {
                             "name": "DELETE_FAULTY_ASA",
@@ -906,7 +961,8 @@
             "dependsOn": [
                 "[concat('Microsoft.Network/loadBalancers/', variables('gwlbName'))]",
                 "[concat('Microsoft.Network/networkSecurityGroups/',variables('mgmtSecGrp'))]",
-                "[concat('Microsoft.Network/networkSecurityGroups/',variables('dataSecGrp'))]"
+                "[concat('Microsoft.Network/networkSecurityGroups/',variables('dataSecGrp'))]",
+                "[concat('Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]"
             ],
             "sku": {
                 "name": "[parameters('vmSize')]",
@@ -947,6 +1003,7 @@
                             "storageUri": "[concat('https://',variables('storageAccountName'),'.blob.core.windows.net')]"
                         }
                     },
+                    "securityProfile": "[variables('securityProfileBlock')]",
                     "networkProfile": {
                         "networkInterfaceConfigurations": [
                             {
@@ -1029,11 +1086,13 @@
             "apiVersion": "2022-04-01",
             "name": "[variables('role1')]",
             "dependsOn": [
-                "[resourceID('Microsoft.Compute/virtualMachineScaleSets', variables('vmssName'))]"
+                "[resourceID('Microsoft.Compute/virtualMachineScaleSets', variables('vmssName'))]",
+                "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
             ],
             "properties": {
                 "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
-                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2016-03-01', 'Full').identity.principalId]"
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2016-03-01', 'Full').identity.principalId]",
+                "principalType": "ServicePrincipal"
             }
         },
         {
@@ -1041,11 +1100,13 @@
             "apiVersion": "2022-04-01",
             "name": "[variables('role2')]",
             "dependsOn": [
-                "[resourceID('Microsoft.Compute/virtualMachineScaleSets', variables('vmssName'))]"
+                "[resourceID('Microsoft.Compute/virtualMachineScaleSets', variables('vmssName'))]",
+                "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
             ],
             "properties": {
                 "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')]",
-                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2016-03-01', 'Full').identity.principalId]"
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2016-03-01', 'Full').identity.principalId]",
+                "principalType": "ServicePrincipal"
             }
         }
     ]

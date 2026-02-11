@@ -14,6 +14,7 @@ def main(req: func.HttpRequest):
         vmScalesetName = os.environ.get("VMSS_NAME")
         minASACount = int(os.environ.get("MIN_ASA_COUNT"))
         maxASACount = int(os.environ.get("MAX_ASA_COUNT"))
+        autoscalingEnabled = os.environ.get("AUTOSCALING", "Enable")
         sampleTimeMin = int(os.environ.get("SAMPLING_TIME_MIN"))
         scaleOutThreshold = float(os.environ.get("SCALE_OUT_THRESHOLD"))
         scaleInThreshold = float(os.environ.get("SCALE_IN_THRESHOLD"))
@@ -56,6 +57,11 @@ def main(req: func.HttpRequest):
                     currentVmCapacity, minASACount))
             cmdStr = "{ \"COMMAND\": \"SCALEOUT\", \"COUNT\": \"1\", \"TYPE\": \"REGULAR\"}"
             return func.HttpResponse(cmdStr, status_code=200)
+
+        # Check if autoscaling is disabled
+        if autoscalingEnabled == "Disable":
+            log.warning("AutoScaleManager:: Autoscaling is disabled. Skipping metric-based scaling. Current capacity: {}".format(currentVmCapacity))
+            return func.HttpResponse("NOACTION", status_code=200)
 
         ##################################################### Scaling decisions based on metrics #####################################################
 
