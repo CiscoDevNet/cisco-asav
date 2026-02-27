@@ -1,0 +1,235 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Stack deploying ASAv
+Parameters: 
+  Prefix:
+    Default: 'cim-cft'
+    Description: Prefix for the resources
+    Type: String
+  Region:
+    Default: us-east-1
+    Description: AWS Region to deploy the stack
+    Type: String
+  AvailabilityZone:
+    Default: us-east-1a
+    Description: Availability Zone for the subnets
+    Type: String
+  ASAvAMIID:
+    Default: ''
+    Description: ASAv AMI ID
+    Type: String  
+  KeyName:
+    Default: virtual_production_keypair
+    Description: Key pair name for SSH access to ASAv
+    Type: String  
+  AdminPassword:
+    Default: c0mpleX@1209
+    Description: Admin password for ASAv
+    Type: String 
+  EnablePassword:
+    Default: c0mpleX@1209
+    Description: Enable password for ASAv
+    Type: String   
+  MgmtSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Management subnet ID
+  InsideSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Inside subnet ID
+  OutsideSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Outside subnet ID
+  SecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group ID for ASAv  
+  ASAInstanceType:
+    AllowedValues:
+      - c4.xlarge
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - m5zn.6xlarge
+      - m5zn.3xlarge
+      - m5zn.2xlarge
+      - m5zn.xlarge
+      - m5n.4xlarge
+      - m5n.2xlarge
+      - m5n.xlarge
+      - m5a.4xlarge
+      - m5a.2xlarge
+      - m5a.xlarge
+      - m5.4xlarge
+      - m5.2xlarge
+      - m5.xlarge
+      - c5d.4xlarge
+      - c5d.2xlarge
+      - c5d.xlarge
+      - c5ad.4xlarge
+      - c5ad.2xlarge
+      - c5ad.xlarge
+      - c5a.4xlarge
+      - c5a.2xlarge
+      - c5a.xlarge
+      - c3.xlarge
+      - c5n.xlarge
+      - c5n.2xlarge
+      - c5n.4xlarge
+      - c6i.xlarge
+      - c6i.2xlarge
+      - c6i.4xlarge
+      - c6a.xlarge
+      - c6a.2xlarge
+      - c6a.4xlarge
+      - c6in.xlarge
+      - c6in.2xlarge
+      - c6in.4xlarge
+    ConstraintDescription: Must be a valid ASAv instance type.
+    Default: c5.xlarge
+    Description: ASAv instance type
+    Type: String  
+  Day0Config:
+    Default: |  
+          ! required config start
+          interface management0/0
+          management-only
+          nameif management
+          security-level 100
+          ip address dhcp setroute
+          ipv6 enable
+          ipv6 address dhcp default
+          no shutdown
+          !
+          interface TenGigabitEthernet 0/0
+          nameif inside
+          security-level 100
+          ip address dhcp
+          ipv6 enable
+          ipv6 address dhcp
+          no shutdown
+          !
+          interface TenGigabitEthernet 0/1
+          nameif outside
+          security-level 0
+          ip address dhcp
+          ipv6 enable
+          ipv6 address dhcp
+          no shutdown
+          !
+          crypto key generate rsa modulus 2048
+          ssh 0 0 management
+          ssh ::/0 management
+          ssh timeout 60
+          ssh version 2
+          username admin password ${AdminPassword} privilege 15
+          username admin attributes
+          service-type admin
+          aaa authentication ssh console LOCAL
+          enable password ${EnablePassword} level 15
+          ! 
+          dns domain-lookup management
+          dns server-group DefaultDNS
+          name-server 8.8.8.8
+          !
+          access-list allow-all extended permit ip any any
+          access-group allow-all global
+          !
+    Description: Day 0 configuration for ASAv
+    Type: String
+
+Resources:
+  Mgmt:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: asav-mgmt
+      GroupSet:
+        - !Ref SecurityGroupId
+      Ipv6AddressCount: 1
+      SourceDestCheck: false
+      SubnetId: !Ref MgmtSubnetId
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-MgmtInterface
+  Inside:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: asav-inside
+      GroupSet:
+        - !Ref SecurityGroupId
+      Ipv6AddressCount: 1
+      SourceDestCheck: false
+      SubnetId: !Ref InsideSubnetId
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-InsideInterface
+  Outside:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: asav-outside
+      GroupSet:
+        - !Ref SecurityGroupId
+      Ipv6AddressCount: 1
+      SourceDestCheck: false
+      SubnetId: !Ref OutsideSubnetId
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-OutsideInterface
+  IPAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  EIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    DependsOn: ASAv
+    Properties:
+      AllocationId: !GetAtt IPAddress.AllocationId
+      NetworkInterfaceId: !Ref Mgmt
+      PrivateIpAddress: !GetAtt Mgmt.PrimaryPrivateIpAddress
+  ASAv:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            DeleteOnTermination: true
+            VolumeType: gp3
+      ImageId: !Ref ASAvAMIID
+      InstanceType: !Ref ASAInstanceType
+      KeyName: !Ref KeyName
+      NetworkInterfaces: 
+        - DeviceIndex: 0
+          NetworkInterfaceId: !Ref Mgmt
+        - DeviceIndex: 1
+          NetworkInterfaceId: !Ref Inside
+        - DeviceIndex: 2
+          NetworkInterfaceId: !Ref Outside
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-ASAv
+        - Key: autostop
+          Value: 'false'
+      UserData:
+        Fn::Base64: !Ref Day0Config
+Outputs:
+  AsavId:
+    Description: ASAv Instance ID
+    Value: !Ref ASAv
+  AsavSSHIP:
+    Description: Public IP address of the ASAv instance
+    Value: !GetAtt IPAddress.PublicIp
+  AsavMgmtIP:
+    Description: Management IP address of the ASAv instance
+    Value: !GetAtt Mgmt.PrimaryPrivateIpAddress
+  AsavInsideIP:
+    Description: Inside IP address of the ASAv instance
+    Value: !GetAtt Inside.PrimaryPrivateIpAddress
+  AsavOutsideIP:
+    Description: Outside IP address of the ASAv instance
+    Value: !GetAtt Outside.PrimaryPrivateIpAddress
+  AsavMgmtIPv6:
+    Description: Management IPv6 address of the ASAv instance
+    Value: !GetAtt Mgmt.PrimaryIpv6Address  
+  AsavInsideIPv6:
+    Description: Inside IPv6 address of the ASAv instance
+    Value: !GetAtt Inside.PrimaryIpv6Address  
+  AsavOutsideIPv6:
+    Description: Outside IPv6 address of the ASAv instance
+    Value: !GetAtt Outside.PrimaryIpv6Address  
