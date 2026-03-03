@@ -259,10 +259,21 @@ output "outside_vpc_name" {
   value       = google_compute_network.outside_vpc.name
 }
 
+output "ccl_vpc_name" {
+  description = "Name of the CCL VPC"
+  value       = google_compute_network.ccl_vpc.name
+}
+
 # Subnet Outputs
 output "mgmt_subnet_name" {
   description = "Name of the management subnet"
   value       = google_compute_subnetwork.mgmt_subnet.name
+}
+
+output "vpc_connector_subnet_name" {
+  description = "Name of the management VPC connector subnet"
+  value       = google_compute_subnetwork.mgmt_vpc_connector_subnet.name
+  
 }
 
 output "inside_subnet_name" {
@@ -273,6 +284,11 @@ output "inside_subnet_name" {
 output "outside_subnet_name" {
   description = "Name of the outside subnet"
   value       = google_compute_subnetwork.outside_subnet.name
+}
+
+output "ccl_subnet_name" {
+  description = "Name of the CCL subnet"
+  value       = google_compute_subnetwork.ccl_subnet.name
 }
 
 # Firewall Rule Outputs
@@ -289,6 +305,11 @@ output "inside_firewall_rule_name" {
 output "outside_firewall_rule_name" {
   description = "Name of the outside firewall rule"
   value       = google_compute_firewall.outside_firewall.name
+}
+
+output "ccl_firewall_rule_name" {
+  description = "Name of the CCL firewall rule"
+  value       = google_compute_firewall.ccl_firewall.name
 }
 
 # VPC Connector Output
