@@ -171,3 +171,12 @@ resource "google_cloudfunctions_function" "scalein_action" {
     version = "latest"
   }
 }
+
+# Outputs
+output "scale_out_function_name" {
+  value = google_cloudfunctions_function.scaleout_action.name
+}
+
+output "scale_in_function_name" {
+  value = google_cloudfunctions_function.scalein_action.name
+}
