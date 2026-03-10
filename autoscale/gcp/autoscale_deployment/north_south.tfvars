@@ -38,12 +38,12 @@ ilb_unhealthy_threshold  = 3
 ilb_draining_timeout_sec = 60
 
 # VPC Configuration
-outside_vpc_name   = "<resource_name_prefix>-outside-vpc-name"   # e.g., "random-terraform-asavautoscale-outside-vpc"
-outside_vpc_subnet = "<resource_name_prefix>-outside-vpc-subnet" # e.g., "random-terraform-asavautoscale-outside-subnet"
-inside_vpc_name    = "<resource_name_prefix>-inside-vpc-name"    # e.g., "random-terraform-asavautoscale-inside-vpc"
-inside_vpc_subnet  = "<resource_name_prefix>-inside-vpc-subnet"  # e.g., "random-terraform-asavautoscale-inside-subnet"
-mgmt_vpc_name      = "<resource_name_prefix>-mgmt-vpc-name"      # e.g., "random-terraform-asavautoscale-mgmt-vpc"
-mgmt_vpc_subnet    = "<resource_name_prefix>-mgmt-vpc-subnet"    # e.g., "random-terraform-asavautoscale-mgmt-subnet"
+outside_vpc_name   = "<resource_name_prefix>-outside-vpc"   # e.g., "random-terraform-asavautoscale-outside-vpc"
+outside_subnet_name = "<resource_name_prefix>-outside-subnet" # e.g., "random-terraform-asavautoscale-outside-subnet"
+inside_vpc_name    = "<resource_name_prefix>-inside-vpc"    # e.g., "random-terraform-asavautoscale-inside-vpc"
+inside_subnet_name  = "<resource_name_prefix>-inside-subnet"  # e.g., "random-terraform-asavautoscale-inside-subnet"
+mgmt_vpc_name      = "<resource_name_prefix>-mgmt-vpc"      # e.g., "random-terraform-asavautoscale-mgmt-vpc"
+mgmt_subnet_name    = "<resource_name_prefix>-mgmt-subnet"    # e.g., "random-terraform-asavautoscale-mgmt-subnet"
 
 # Target Configuration
 appserver_ip = "appserver-ip" # e.g., "10.114.1.1"
