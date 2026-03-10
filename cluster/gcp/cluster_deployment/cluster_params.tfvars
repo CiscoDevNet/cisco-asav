@@ -89,4 +89,9 @@ ilb_draining_timeout_sec    = 60
 # Licensing
 # --------------------
 license_throughput          = "10G"                                    # Throughput for the license, e.g., "10G"
-license_id_token            = "<license-id-token>"                       # License ID token, e.g., "my-license-id-token"
+license_id_token            = "<license-id-token>"                     # License ID token, e.g., "my-license-id-token"
+
+# --------------------
+# Secure Boot
+# --------------------
+enable_secure_boot           = false                                   # Supported from version 9.24 onwards only. Whether to enable secure boot

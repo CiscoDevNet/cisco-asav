@@ -249,10 +249,10 @@ variable "outside_vpc_name" {
   }
 }
 
-variable "outside_vpc_subnet" {
+variable "outside_subnet_name" {
   description = "Subnet name for the outside VPC."
   validation {
-    condition     = length(var.outside_vpc_subnet) > 0
+    condition     = length(var.outside_subnet_name) > 0
     error_message = "Please provide a valid outside VPC subnet ID or name."
   }
 }
@@ -265,10 +265,10 @@ variable "inside_vpc_name" {
   }
 }
 
-variable "inside_vpc_subnet" {
+variable "inside_subnet_name" {
   description = "Subnet name for the inside VPC."
   validation {
-    condition     = length(var.inside_vpc_subnet) > 0
+    condition     = length(var.inside_subnet_name) > 0
     error_message = "Please provide a valid inside VPC subnet ID or name."
   }
 }
@@ -281,10 +281,10 @@ variable "mgmt_vpc_name" {
   }
 }
 
-variable "mgmt_vpc_subnet" {
+variable "mgmt_subnet_name" {
   description = "Subnet name for the management VPC."
   validation {
-    condition     = length(var.mgmt_vpc_subnet) > 0
+    condition     = length(var.mgmt_subnet_name) > 0
     error_message = "Please provide a valid management VPC subnet."
   }
 }
@@ -387,11 +387,11 @@ module "asav_autoscale" {
   ilb_unhealthy_threshold         = var.ilb_unhealthy_threshold
   ilb_draining_timeout_sec        = var.ilb_draining_timeout_sec
   outside_vpc_name                = var.outside_vpc_name
-  outside_vpc_subnet              = var.outside_vpc_subnet
+  outside_subnet_name             = var.outside_subnet_name
   inside_vpc_name                 = var.inside_vpc_name
-  inside_vpc_subnet               = var.inside_vpc_subnet
+  inside_subnet_name              = var.inside_subnet_name
   mgmt_vpc_name                   = var.mgmt_vpc_name
-  mgmt_vpc_subnet                 = var.mgmt_vpc_subnet
+  mgmt_subnet_name                = var.mgmt_subnet_name
   inside_firewall_rule_name       = var.inside_firewall_rule_name
   outside_firewall_rule_name      = var.outside_firewall_rule_name
   mgmt_firewall_rule_name         = var.mgmt_firewall_rule_name
@@ -401,4 +401,42 @@ module "asav_autoscale" {
   zone                            = var.zone
 
   depends_on = [module.asav_functions]
+}
+
+# Outputs
+
+output "elb_name" {
+  value = module.asav_autoscale.elb_name
+}
+
+output "ilb_name" {
+  value = module.asav_autoscale.ilb_name
+}
+
+output "elb_ip" {
+  value = module.asav_autoscale.elb_ip
+}
+
+output "ilb_ip" {
+  value = module.asav_autoscale.ilb_ip
+}
+
+output "outside_nat_router" {
+  value = module.asav_autoscale.outside_nat_router
+}
+
+output "outside_nat" {
+  value = module.asav_autoscale.outside_nat
+}
+
+output "instance_group_name" {
+  value = module.asav_autoscale.instance_group_name
+}
+
+output "scale_out_function_name" {
+  value = module.asav_functions.scale_out_function_name
+}
+
+output "scale_in_function_name" {
+  value = module.asav_functions.scale_in_function_name
 }

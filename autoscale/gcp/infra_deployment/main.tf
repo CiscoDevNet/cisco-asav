@@ -262,6 +262,16 @@ output "outside_firewall_rule_name" {
   value       = google_compute_firewall.outside_firewall.name
 }
 
+output "inside_hc_firewall_rule_name" {
+  description = "Name of the health check firewall rule for inside"
+  value       = google_compute_firewall.hc_firewall_inside.name
+}
+
+output "outside_hc_firewall_rule_name" {
+  description = "Name of the health check firewall rule for outside"
+  value       = google_compute_firewall.hc_firewall_outside.name
+}
+
 # VPC Connector Output
 output "vpc_connector_name" {
   description = "Name of the VPC connector"

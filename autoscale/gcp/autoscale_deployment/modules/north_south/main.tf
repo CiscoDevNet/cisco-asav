@@ -236,10 +236,10 @@ variable "outside_vpc_name" {
   }
 }
 
-variable "outside_vpc_subnet" {
+variable "outside_subnet_name" {
   description = "Subnet name for the outside VPC."
   validation {
-    condition     = length(var.outside_vpc_subnet) > 0
+    condition     = length(var.outside_subnet_name) > 0
     error_message = "Please provide a valid outside VPC subnet ID or name."
   }
 }
@@ -252,10 +252,10 @@ variable "inside_vpc_name" {
   }
 }
 
-variable "inside_vpc_subnet" {
+variable "inside_subnet_name" {
   description = "Subnet name for the inside VPC."
   validation {
-    condition     = length(var.inside_vpc_subnet) > 0
+    condition     = length(var.inside_subnet_name) > 0
     error_message = "Please provide a valid inside VPC subnet ID or name."
   }
 }
@@ -268,10 +268,10 @@ variable "mgmt_vpc_name" {
   }
 }
 
-variable "mgmt_vpc_subnet" {
+variable "mgmt_subnet_name" {
   description = "Subnet name for the management VPC."
   validation {
-    condition     = length(var.mgmt_vpc_subnet) > 0
+    condition     = length(var.mgmt_subnet_name) > 0
     error_message = "Please provide a valid management VPC subnet."
   }
 }
@@ -336,11 +336,11 @@ variable "zone" {
 }
 
 data "google_compute_subnetwork" "inside_vpc_subnet" {
-  name = var.inside_vpc_subnet
+  name = var.inside_subnet_name
 }
 
 data "google_compute_subnetwork" "mgmt_vpc_subnet" {
-  name = var.mgmt_vpc_subnet
+  name = var.mgmt_subnet_name
 }
 
 
@@ -365,15 +365,15 @@ resource "google_compute_instance_template" "asav_instance_template" {
   # Three NICs (inside, outside, management)
   network_interface {
     network    = "projects/${var.project_id}/global/networks/${var.outside_vpc_name}"
-    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.outside_vpc_subnet}"
+    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.outside_subnet_name}"
   }
   network_interface {
     network    = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
-    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_vpc_subnet}"
+    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_subnet_name}"
   }
   network_interface {
     network    = "projects/${var.project_id}/global/networks/${var.mgmt_vpc_name}"
-    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.mgmt_vpc_subnet}"
+    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.mgmt_subnet_name}"
   }
 
   reservation_affinity {
@@ -587,25 +587,54 @@ resource "google_compute_forwarding_rule" "asav_fr_ilb" {
   ip_address            = google_compute_address.asav_ilb_ip.address
   backend_service       = google_compute_region_backend_service.asav_backend_service_ilb.id
   network               = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
-  subnetwork            = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_vpc_subnet}"
+  subnetwork            = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_subnet_name}"
 }
 
 resource "google_compute_address" "asav_ilb_ip" {
   name         = "${var.resource_name_prefix}-ilb-ip"
   region       = var.region
   address_type = "INTERNAL"
-  subnetwork   = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_vpc_subnet}"
+  subnetwork   = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_subnet_name}"
 }
-resource "google_compute_router" "nat_router" {
-  name    = "${var.resource_name_prefix}-nat-router"
+resource "google_compute_router" "outside_nat_router" {
+  name    = "${var.resource_name_prefix}-out-nat-router"
   region  = var.region
   network = "projects/${var.project_id}/global/networks/${var.outside_vpc_name}"
 
 }
 
-resource "google_compute_router_nat" "nat" {
-  name                               = "${var.resource_name_prefix}-nat"
-  router                             = google_compute_router.nat_router.name
+resource "google_compute_router_nat" "outside_nat" {
+  name                               = "${var.resource_name_prefix}-out-nat"
+  router                             = google_compute_router.outside_nat_router.name
   nat_ip_allocate_option             = "AUTO_ONLY"
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+}
+
+# Outputs
+output "elb_name" {
+  value = google_compute_forwarding_rule.asav_fr_elb.name
+}
+
+output "ilb_name" {
+  value = google_compute_forwarding_rule.asav_fr_ilb.name
+}
+
+output "elb_ip" {
+  value = google_compute_address.asav_elb_ip.address
+}
+
+output "ilb_ip" {
+  value = google_compute_address.asav_ilb_ip.address
+}
+
+output "outside_nat_router" {
+  value = google_compute_router.outside_nat_router.name
+}
+
+output "outside_nat" {
+  value = google_compute_router_nat.outside_nat.name
+}
+
+output "instance_group_name" {
+  value = google_compute_region_instance_group_manager.asav_instance_group.name
 }
