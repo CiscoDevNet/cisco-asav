@@ -5,7 +5,7 @@
             "AutoScaleManager": {
                 "inputs": {
                     "function": {
-                        "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/AutoScaleManager"
+                        "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/AutoScaleManager"
                     }
                 },
                 "runAfter": {},
@@ -18,7 +18,7 @@
                             "CheckAndConfigureASAv": {
                                 "inputs": {
                                     "function": {
-                                        "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/ConfigureASAv"
+                                        "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/ConfigureASAv"
                                     }
                                 },
                                 "type": "Function"
@@ -54,7 +54,7 @@
                                     "inputs": {
                                         "body": "@body('AutoScaleManager')",
                                         "function": {
-                                            "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/AsaScaleIn"
+                                            "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/AsaScaleIn"
                                         },
                                         "retryPolicy": {
                                             "type": "none"
@@ -71,7 +71,7 @@
                                     "inputs": {
                                         "body": "@body('AutoScaleManager')",
                                         "function": {
-                                            "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/CleanupASAvConfiguration"
+                                            "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/CleanupASAvConfiguration"
                                         },
                                         "retryPolicy": {
                                             "type": "none"
@@ -117,7 +117,7 @@
                                     "inputs": {
                                         "body": "@body('AutoScaleManager')",
                                         "function": {
-                                            "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/StopNewConnections"
+                                            "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/StopNewConnections"
                                         },
                                         "retryPolicy": {
                                             "type": "none"
@@ -135,7 +135,7 @@
                                                 "inputs": {
                                                     "body": "@body('AutoScaleManager')",
                                                     "function": {
-                                                        "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/AsaScaleOut"
+                                                        "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/AsaScaleOut"
                                                     },
                                                     "retryPolicy": {
                                                         "type": "none"
@@ -227,7 +227,7 @@
                                                         "inputs": {
                                                             "body": "@body('GetAsaPublicIp')",
                                                             "function": {
-                                                                "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/CheckASAvLicenseConfig"
+                                                                "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/CheckASAvLicenseConfig"
                                                             },
                                                             "retryPolicy": {
                                                                 "count": 3,
@@ -246,7 +246,7 @@
                                                         "inputs": {
                                                             "body": "@body('GetAsaPublicIp')",
                                                             "function": {
-                                                                "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/ConfigureASAv"
+                                                                "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/ConfigureASAv"
                                                             }
                                                         },
                                                         "runAfter": {
@@ -272,7 +272,7 @@
                                                         "inputs": {
                                                             "body": "@body('GetAsaPublicIp')",
                                                             "function": {
-                                                                "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/DeleteUnConfiguredASA"
+                                                                "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/DeleteUnConfiguredASA"
                                                             },
                                                             "retryPolicy": {
                                                                 "type": "none"
@@ -290,7 +290,7 @@
                                                         "inputs": {
                                                             "body": "@body('GetAsaPublicIp')",
                                                             "function": {
-                                                                "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/DeleteUnConfiguredASA"
+                                                                "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/DeleteUnConfiguredASA"
                                                             }
                                                         },
                                                         "runAfter": {
@@ -307,7 +307,7 @@
                                                                 "TYPE": "@{variables('SCALEOUTTYPE')}"
                                                             },
                                                             "function": {
-                                                                "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/GetAsaPublicIp"
+                                                                "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/GetAsaPublicIp"
                                                             }
                                                         },
                                                         "runAfter": {},
@@ -334,7 +334,7 @@
                                                                 "inputs": {
                                                                     "body": "@body('GetAsaPublicIp')",
                                                                     "function": {
-                                                                        "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/FUNCTION_APP_NAME/functions/WaitForAsaToComeUp"
+                                                                        "id": "/subscriptions/1fdf9165-db4d-4fc9-814b-8475c5adc637/resourceGroups/nandis-asav-gwlb-cus-old-rg/providers/Microsoft.Web/sites/gwlb923cus-function-app/functions/WaitForAsaToComeUp"
                                                                     }
                                                                 },
                                                                 "runAfter": {},

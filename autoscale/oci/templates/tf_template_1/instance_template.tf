@@ -224,6 +224,16 @@ variable "outside_nsg_ocid" {
         error_message = "The NSG OCID must start with <ocid1.networksecuritygroup.....> and must be valid. Please check the value provided."
       }
 }
+variable "function_subnet_ocid" {
+  description = "OCID of the subnet that is to be used for Oracle Functions, All traffic of this VCN/Subnet must be routed via NAT Gateway and public IP of this NAT GW must be allowed in security group of ASAv management interface."
+  validation {
+        condition = (
+          length(var.function_subnet_ocid) > 13 &&
+          can(regex("^ocid1.subnet.", var.function_subnet_ocid ))
+        )
+        error_message = "The subnet OCID must start with <ocid1.subnet....> and must be valid. Please check the value provided."
+      }
+}
 variable "elb_listener_port" {
   description = "List of comma separated communication ports for the external load balancer listener. Example - 80,8000."
 }
@@ -503,7 +513,7 @@ resource "oci_functions_application" "test_application" {
     #Required
     compartment_id = var.compartment_id
     display_name = "${var.autoscale_group_prefix}_application"
-    subnet_ids = [var.mgmt_subnet_ocid]
+    subnet_ids = [var.function_subnet_ocid]
 
     #Optional
     config = {
