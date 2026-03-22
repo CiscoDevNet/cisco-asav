@@ -10,7 +10,7 @@ variable "license_token" {}
 
 # Create a GCS bucket to store the Cloud Function ZIP archive
 resource "google_storage_bucket" "asav_bucket" {
-  name          = "${var.resource_name_prefix}-asav-cluster-bucket"
+  name          = "${var.resource_name_prefix}-asav-autoscale-bucket"
   location      = var.region
   storage_class = "STANDARD"
 
@@ -19,13 +19,13 @@ resource "google_storage_bucket" "asav_bucket" {
 }
 
 # Create a ZIP archive of Cluster Function Source Code
-data "archive_file" "asav_cluster_scalein_action_zip" {
+data "archive_file" "asav_autoscale_scalein_action_zip" {
   type        = "zip"
   source_dir  = "${path.module}/scalein_action"
   output_path = "${path.module}/scalein_action/scalein-action.zip"
 }
 
-data "archive_file" "asav_cluster_scaleout_action_zip" {
+data "archive_file" "asav_autoscale_scaleout_action_zip" {
   type        = "zip"
   source_dir  = "${path.module}/scaleout_action"
   output_path = "${path.module}/scaleout_action/scaleout-action.zip"
@@ -33,16 +33,16 @@ data "archive_file" "asav_cluster_scaleout_action_zip" {
 }
 
 # Upload the ZIP archive to the created bucket
-resource "google_storage_bucket_object" "asav_cluster_scalein_action_object" {
+resource "google_storage_bucket_object" "asav_autoscale_scalein_action_object" {
   name   = "scalein-action.zip"
   bucket = google_storage_bucket.asav_bucket.id
-  source = data.archive_file.asav_cluster_scalein_action_zip.output_path
+  source = data.archive_file.asav_autoscale_scalein_action_zip.output_path
 }
 
-resource "google_storage_bucket_object" "asav_cluster_scaleout_action_object" {
+resource "google_storage_bucket_object" "asav_autoscale_scaleout_action_object" {
   name   = "scaleout-action.zip"
   bucket = google_storage_bucket.asav_bucket.id
-  source = data.archive_file.asav_cluster_scaleout_action_zip.output_path
+  source = data.archive_file.asav_autoscale_scaleout_action_zip.output_path
 }
 
 resource "google_pubsub_topic" "insert" {
@@ -52,8 +52,8 @@ resource "google_pubsub_topic" "insert" {
 # Delete ZIP archive files after they've been uploaded
 resource "null_resource" "cleanup_zip_files" {
   depends_on = [
-    google_storage_bucket_object.asav_cluster_scalein_action_object,
-    google_storage_bucket_object.asav_cluster_scaleout_action_object
+    google_storage_bucket_object.asav_autoscale_scalein_action_object,
+    google_storage_bucket_object.asav_autoscale_scaleout_action_object
   ]
 
   provisioner "local-exec" {
@@ -106,7 +106,7 @@ resource "google_cloudfunctions_function" "scaleout_action" {
   runtime                       = "python312"
   entry_point                   = "scale_out"
   source_archive_bucket         = google_storage_bucket.asav_bucket.id
-  source_archive_object         = google_storage_bucket_object.asav_cluster_scaleout_action_object.name
+  source_archive_object         = google_storage_bucket_object.asav_autoscale_scaleout_action_object.name
   timeout                       = 540
   vpc_connector                 = var.vpc_connector_name
   vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
@@ -142,7 +142,7 @@ resource "google_cloudfunctions_function" "scalein_action" {
   runtime                       = "python312"
   entry_point                   = "scale_in"
   source_archive_bucket         = google_storage_bucket.asav_bucket.id
-  source_archive_object         = google_storage_bucket_object.asav_cluster_scalein_action_object.name
+  source_archive_object         = google_storage_bucket_object.asav_autoscale_scalein_action_object.name
   timeout                       = 540
   vpc_connector                 = var.vpc_connector_name
   vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"

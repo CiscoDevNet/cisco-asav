@@ -31,6 +31,8 @@ import socket
 import time
 import oci
 import base64
+from datetime import datetime
+from dateutil.tz import tzutc
 from fdk import response
 logging.basicConfig(force=True, level="INFO")
 logging.getLogger("paramiko").setLevel(logging.WARNING)
@@ -555,6 +557,26 @@ class RemoveBackend:
             logger.error("REMOVE UNHEALTHY BACKEND FUNCTION: ERROR IN REMOVING {0} BACKEND FROM LOAD BALANCER FOR LISTENER PORT NO: {1} ERROR: {2}".format(lbName, portNo, repr(e)))
             return None
 
+    def get_time_since_creation(self, instanceId):
+        """
+        Purpose:   To calculate time since instance was created.
+        Parameters: Instance OCID
+        Returns:    int (Minutes)
+        Raises:
+        """
+        try:
+            get_instance_response = self.computeClient.get_instance(instance_id=instanceId).data
+            instance_creation_time = get_instance_response.time_created
+            logger.debug(f"REMOVE UNHEALTHY BACKEND FUNCTION: Time since creation {instance_creation_time}")
+
+            current_time_in_utc = datetime.now(tzutc())
+            time_difference = current_time_in_utc - instance_creation_time
+            minutes = time_difference.seconds/60
+            return minutes
+        except Exception as e:
+            logger.error(f"REMOVE UNHEALTHY BACKEND FUNCTION: ERROR IN GETTING 'TIME SINCE CREATION' FOR INSTANCE {instanceId}")
+            return 31
+
     def decrypt_cipher(self, cipherText, cryptEndpoint, keyId):
         """
         Purpose:   To decrypt encrypted password.
@@ -691,6 +713,13 @@ def handler(ctx, data: io.BytesIO = None):
 
     for instanceId in unhealthy_instance_to_remove:
         
+        # EXTRA CHECK SO REMOVE UNHEALTHY BACKEND FUNCTION DOES NOT REMOVE NEWLY CREATED INSTANCE
+        # WHICH MIGHT BE UNDER CONFIGURATION
+        time_since_creation = removeBackendObject.get_time_since_creation(instanceId)
+        if time_since_creation < 30:
+            logger.info(f"REMOVE UNHEALTHY BACKEND FUNCTION: Skipping instance {instanceId[-5:]} as it was created {time_since_creation:.1f} minutes ago (< 30 min threshold)")
+            continue
+
         ################################### REMOVING BACKEND FROM LOAD BALANCER ##############################
         instance_interface_ip = removeBackendObject.get_instance_interface_ip(compartmentId, instanceId, insideInterfaceName, outsideInterfaceName)
         if instance_interface_ip == None:
