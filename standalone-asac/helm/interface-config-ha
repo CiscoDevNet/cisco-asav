@@ -1,0 +1,12 @@
+[interface0]
+  iface_id = net1;
+  uio_driver = afpacket;
+[interface1]
+  iface_id = net2;
+  uio_driver = afpacket;
+[interface2]
+  iface_id = net3;
+  uio_driver = afpacket;
+[interface3]
+  iface_id = net4;
+  uio_driver = afpacket;
