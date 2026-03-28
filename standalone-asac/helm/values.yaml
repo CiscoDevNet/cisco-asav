@@ -19,14 +19,39 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-replicas: 1
+asac:
+  repository: "localhost:5000/asac_9.22.2.115"
+  app_name: "asac"
+  cpus: 2
+  # Memory in MB
+  memory: 4096
+  # enable only for HA case and with minimum of two worker nodes
+  enable_ha: "false"
+  # enable only for SRIOV case 
+  enable_sriov: "false"
 
-image:
-  repository: localhost:5000/asac:9.22.1.1
-  #repository: dockerhub.cisco.com/asac-dev-docker/asac:9.22.1.1
+worker_nodes:
+  # Network interface configuration
+  asacMgmtInterface: "ens224"
+  asacData1Interface: "ens256"
+  asacData2Interface: "ens161"
 
-persistVolPath: /home/ubuntu/pod-path
+  # update fail over interafce only for HA case
+  asacFoverInterface: "ens193"
+  
+  # update below section only for SRIOv case
+  asacData1NetAttDef: "sriov-net-ens7f0"
+  asacData2NetAttDef: "sriov-net-ens7f1"
+  sriovPF1: "intel.com/intel_sriov_ens7f0"
+  sriovPF2: "intel.com/intel_sriov_ens7f1"
 
-asacMgmtInterface: "ens192"
-asacInsideInterface: "ens224"
-asacOutsideInterface: "ens256"
+  # Persistent Volume Configuration
+  persistence:
+    # Lina persistent volume for pod private data
+    lina:
+      enabled: true
+      storageClass: "lina-storage"
+      size: "1Gi"
+      # Host path on worker nodes - must exist or be creatable
+      hostPath: "/home/ubuntu/lina-path"
+      accessMode: "ReadWriteMany"

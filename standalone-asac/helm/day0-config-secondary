@@ -1,0 +1,36 @@
+! ASA day0 config
+same-security-traffic permit inter-interface
+same-security-traffic permit intra-interface
+!
+no failover
+failover lan unit secondary
+interface GigabitEthernet0/0
+no nameif
+no shutdown
+failover lan interface CONNECT GigabitEthernet0/0
+failover interface ip CONNECT 20.20.20.1 255.255.255.0 standby 20.20.20.2
+no failover key
+no failover ipsec pre-shared-key
+failover
+!
+crypto key generate rsa modulus 2048
+no ssh stack ciscossh
+ssh 0 0 management
+ssh timeout 60
+ssh version 2
+username admin password <asac-password> privilege 15
+username admin attributes
+service-type admin
+enable password <asac-en-password>
+aaa authentication ssh console LOCAL
+access-list allow-all extended permit ip any any
+access-group allow-all global
+! Modify name-server as per your VPC
+dns domain-lookup management
+dns server-group DefaultDNS
+name-server 8.8.8.8
+!ASDM config
+http server enable
+aaa authentication http console LOCAL
+http 0.0.0.0 0.0.0.0 management
+!

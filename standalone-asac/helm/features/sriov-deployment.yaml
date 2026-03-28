@@ -140,7 +140,7 @@ spec:
   template:
     metadata:
       annotations:
-        k8s.v1.cni.cncf.io/networks: macvlan-mgmt-bridge{{- if eq .Values.asac.enable_ha "true" }}, macvlan-fover-bridge{{- end }}, macvlan-data1-bridge, macvlan-data2-bridge
+        k8s.v1.cni.cncf.io/networks: macvlan-mgmt-bridge{{- if eq .Values.asac.enable_ha "true" }}, macvlan-fover-bridge{{- end }}, {{ .Values.worker_nodes.asacData1NetAttDef }}, {{ .Values.worker_nodes.asacData2NetAttDef }}
       labels:
         app: ASAC_PRIMARY
         role: primary
@@ -181,9 +181,18 @@ spec:
       - name: persistent-storage
         persistentVolumeClaim:
           claimName: lina-pvc-primary
+      - name: pci-bus
+        hostPath:
+          path: /sys/bus/pci
+          type: Directory
+      - name: vfio
+        hostPath:
+          path: /dev/vfio
+          type: Directory
       containers:
       - name: asac
         image: {{ .Values.asac.repository }}
+          #command: ["/bin/bash"]
         stdin: true
         tty: true
         securityContext:
@@ -214,15 +223,25 @@ spec:
             mountPath: /mnt/disk0/interface-config
           - name: persistent-storage
             mountPath: /mnt/disk0/.private
+          - name: pci-bus
+            mountPath: /sys/bus/pci
+            readOnly: false
+          - name: vfio
+            mountPath: /dev/vfio
+            readOnly: false
         resources:
           limits:
-            hugepages-2Mi: 512Mi
-            memory: {{ .Values.asac.memory }}Mi
-            cpu: {{ .Values.asac.cpus }}
+            hugepages-2Mi: 4Gi
+            memory: 36Gi
+            cpu: 20
+            {{ .Values.worker_nodes.sriovPF1 }}: "1"
+            {{ .Values.worker_nodes.sriovPF2 }}: "1"
           requests:
-            hugepages-2Mi: 512Mi
-            memory: {{ .Values.asac.memory }}Mi
-            cpu: {{ .Values.asac.cpus }}
+            hugepages-2Mi: 4Gi
+            memory: 32Gi
+            cpu: 16
+            {{ .Values.worker_nodes.sriovPF1 }}: "1"
+            {{ .Values.worker_nodes.sriovPF2 }}: "1"
         livenessProbe:
           exec:
             command:
@@ -260,7 +279,7 @@ spec:
   template:
     metadata:
       annotations:
-        k8s.v1.cni.cncf.io/networks: macvlan-mgmt-bridge, macvlan-fover-bridge, macvlan-data1-bridge, macvlan-data2-bridge 
+        k8s.v1.cni.cncf.io/networks: macvlan-mgmt-bridge, macvlan-fover-bridge, {{ .Values.worker_nodes.asacData1NetAttDef }}, {{ .Values.worker_nodes.asacData2NetAttDef }} 
       labels:
         app: ASAC_SECONDARY
         role: secondary
@@ -301,6 +320,14 @@ spec:
       - name: persistent-storage
         persistentVolumeClaim:
           claimName: lina-pvc-secondary
+      - name: pci-bus
+        hostPath:
+          path: /sys/bus/pci
+          type: Directory
+      - name: vfio
+        hostPath:
+          path: /dev/vfio
+          type: Directory
       containers:
       - name: asac
         image: {{ .Values.asac.repository }}
@@ -334,15 +361,25 @@ spec:
             mountPath: /mnt/disk0/interface-config
           - name: persistent-storage
             mountPath: /mnt/disk0/.private
+          - name: pci-bus
+            mountPath: /sys/bus/pci
+            readOnly: false
+          - name: vfio
+            mountPath: /dev/vfio
+            readOnly: false
         resources:
           limits:
-            hugepages-2Mi: 512Mi
-            memory: {{ .Values.asac.memory }}Mi
-            cpu: {{ .Values.asac.cpus }}
+            hugepages-2Mi: 4Gi
+            memory: 36Gi
+            cpu: 20
+            {{ .Values.worker_nodes.sriovPF1 }}: "1"
+            {{ .Values.worker_nodes.sriovPF2 }}: "1"
           requests:
-            hugepages-2Mi: 512Mi
-            memory: {{ .Values.asac.memory }}Mi
-            cpu: {{ .Values.asac.cpus }}
+            hugepages-2Mi: 4Gi
+            memory: 32Gi
+            cpu: 16
+            {{ .Values.worker_nodes.sriovPF1 }}: "1"
+            {{ .Values.worker_nodes.sriovPF2 }}: "1"
         livenessProbe:
           exec:
             command:
