@@ -111,7 +111,7 @@ resource "google_cloudfunctions_function" "scaleout_action" {
   vpc_connector                 = var.vpc_connector_name
   vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
   ingress_settings              = "ALLOW_ALL"
-  min_instances                 = 0
+  min_instances                 = 2
   max_instances                 = 16
 
   event_trigger {
@@ -148,7 +148,7 @@ resource "google_cloudfunctions_function" "scalein_action" {
   vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
   ingress_settings              = "ALLOW_ALL"
   min_instances                 = 0
-  max_instances                 = 4
+  max_instances                 = 16
 
   event_trigger {
     event_type = "google.pubsub.topic.publish"
