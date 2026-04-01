@@ -107,8 +107,8 @@ variable "max_asa_count" {
   description = "The maximum ASA count allowed."
   type        = number
   validation {
-    condition     = var.max_asa_count > 0
-    error_message = "The max_asa_count must be greater than 0."
+    condition     = var.max_asa_count >= 0
+    error_message = "The max_asa_count must be greater than or equal to 0."
   }
 }
 

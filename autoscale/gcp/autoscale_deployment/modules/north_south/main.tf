@@ -94,8 +94,8 @@ variable "max_asa_count" {
   description = "The maximum ASA count allowed."
   type        = number
   validation {
-    condition     = var.max_asa_count > 0
-    error_message = "The max_asa_count must be greater than 0."
+    condition     = var.max_asa_count >= 0
+    error_message = "The max_asa_count must be greater than or equal to 0."
   }
 }
 
@@ -461,7 +461,6 @@ resource "google_compute_instance_template" "asav_instance_template" {
           license smart
           feature tier standard
           throughput level 2G
-          debug menu license 25 production
           license smart register idtoken ${var.license_id_token} force
     EOT
     ssh-keys       = var.public_key
