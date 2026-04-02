@@ -111,7 +111,7 @@ resource "google_cloudfunctions_function" "scaleout_action" {
   vpc_connector                 = var.vpc_connector_name
   vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
   ingress_settings              = "ALLOW_ALL"
-  min_instances                 = 2
+  min_instances                 = 0
   max_instances                 = 16
 
   event_trigger {
