@@ -306,6 +306,15 @@ variable "license_id_token" {
   }
 }
 
+variable "license_throughput" {
+  description = "License throughput for ASAv. allowed values: 100M, 1G, 2G, 10G, 20G etc."
+  type        = string
+  validation {
+    condition     = length(var.license_throughput) > 0
+    error_message = "Please provide a valid license throughput."
+  }
+}
+
 variable "inside_firewall_rule_name" {
   description = "Firewall rule name for inside traffic."
   validation {
@@ -398,6 +407,7 @@ module "asav_autoscale" {
   health_check_firewall_rule_name = var.health_check_firewall_rule_name
   appserver_ip                    = var.appserver_ip
   license_id_token                = var.license_id_token
+  license_throughput              = var.license_throughput
   zone                            = var.zone
 
   depends_on = [module.asav_functions]

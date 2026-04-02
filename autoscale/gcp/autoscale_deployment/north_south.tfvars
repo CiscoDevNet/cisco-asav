@@ -58,4 +58,5 @@ health_check_firewall_rule_name = "allow-asa-hc" # e.g., "allow-asa-hc"
 vpc_connector_name = "vpc-connector-name" # e.g., "randomasav-vpc-connector"
 
 # Licensing
-license_id_token = "license-id-token" # e.g., "HKASNDK"
+license_id_token = "license-id-token"        # e.g., "HKASNDK"
+license_throughput = "10G"                   # Throughput for the license, e.g., "10G"

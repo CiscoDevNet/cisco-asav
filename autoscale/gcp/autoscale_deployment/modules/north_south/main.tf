@@ -293,6 +293,15 @@ variable "license_id_token" {
   }
 }
 
+variable "license_throughput" {
+  description = "License throughput for ASAv. allowed values: 100M, 1G, 2G, 10G, 20G etc."
+  type        = string
+  validation {
+    condition     = length(var.license_throughput) > 0
+    error_message = "Please provide a valid license throughput."
+  }
+}
+
 variable "inside_firewall_rule_name" {
   description = "Firewall rule name for inside traffic."
   validation {
@@ -460,7 +469,7 @@ resource "google_compute_instance_template" "asav_instance_template" {
           destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
           license smart
           feature tier standard
-          throughput level 2G
+          throughput level ${var.license_throughput}
           license smart register idtoken ${var.license_id_token} force
     EOT
     ssh-keys       = var.public_key
