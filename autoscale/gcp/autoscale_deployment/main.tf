@@ -60,6 +60,12 @@ variable "source_image_url" {
   }
 }
 
+variable "assign_public_ip_to_mgmt" {
+  description = "Assign public IP to management interface."
+  type        = bool
+  default     = false
+}
+
 variable "public_key" {
   description = "SSH public key for instance access."
   validation {
@@ -376,6 +382,7 @@ module "asav_autoscale" {
   source_image_url                = var.source_image_url
   public_key                      = var.public_key
   service_account_mail_id         = var.service_account_mail_id
+  assign_public_ip_to_mgmt        = var.assign_public_ip_to_mgmt
   cpu_utilization_target          = var.cpu_utilization_target
   cool_down_period_sec            = var.cool_down_period_sec
   min_asa_count                    = var.min_asa_count

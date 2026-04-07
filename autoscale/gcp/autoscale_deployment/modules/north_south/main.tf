@@ -55,6 +55,11 @@ variable "public_key" {
   }
 }
 
+variable "assign_public_ip_to_mgmt" {
+  description = "Assign public IP to management interface."
+  type        = bool
+}
+
 variable "service_account_mail_id" {
   description = "Service account email used by the instances."
   validation {
@@ -383,6 +388,10 @@ resource "google_compute_instance_template" "asav_instance_template" {
   network_interface {
     network    = "projects/${var.project_id}/global/networks/${var.mgmt_vpc_name}"
     subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.mgmt_subnet_name}"
+    dynamic "access_config" {
+      for_each = var.assign_public_ip_to_mgmt ? [1] : []
+      content {}
+    }
   }
 
   reservation_affinity {

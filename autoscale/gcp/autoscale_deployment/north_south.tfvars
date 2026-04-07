@@ -6,6 +6,8 @@ region               = "region"               # e.g., "us-central1"
 # Machine Configuration
 machine_type     = "machine-type"     # e.g., "n1-standard-4"
 source_image_url = "source-image-url" # e.g., "projects/asav-4krn/global/images/asav-gcp-99-76-1-11"
+assign_public_ip_to_mgmt    = true    # Whether to assign a public IP to the management interface (true/false)
+
 
 # Security and Authentication
 public_key              = "public-key"           # e.g., "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCNQqBL9vjTT01O1ATo8Qm0DuhWRC..."
