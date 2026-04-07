@@ -144,6 +144,10 @@ resource "google_cloudfunctions_function" "scaleout_action" {
     event_type = "google.pubsub.topic.publish"
     resource   = google_pubsub_topic.insert.id
   }
+
+  environment_variables = {
+    RESOURCE_NAME_PREFIX = var.resource_name_prefix
+  }
 }
 
 resource "google_cloudfunctions_function" "scalein_action" {
@@ -162,6 +166,10 @@ resource "google_cloudfunctions_function" "scalein_action" {
   event_trigger {
     event_type = "google.pubsub.topic.publish"
     resource   = google_pubsub_topic.delete.id
+  }
+
+  environment_variables = {
+    RESOURCE_NAME_PREFIX = var.resource_name_prefix
   }
 }
 
