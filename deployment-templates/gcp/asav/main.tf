@@ -73,38 +73,6 @@ resource "google_compute_instance" "asav_instance" {
 
   metadata_startup_script = var.day0_config
 
-  # metadata_startup_script = <<EOF
-  #   ! required config start
-  #   !
-  #   interface management0/0
-  #   management-only
-  #   nameif management
-  #   security-level 100
-  #   ip address dhcp setroute
-  #   ipv6 enable
-  #   ipv6 address dhcp default
-  #   no shutdown
-  #   !
-  #   crypto key generate rsa modulus 2048
-  #   ssh 0 0 management
-  #   ssh ::/0 management
-  #   ssh timeout 60
-  #   ssh version 2
-  #   username admin password ${var.admin_password} privilege 15
-  #   username admin attributes
-  #   service-type admin
-  #   aaa authentication ssh console LOCAL
-  #   enable password ${var.enable_password} level 15
-  #   ! 
-  #   dns domain-lookup management
-  #   dns server-group DefaultDNS
-  #   name-server 8.8.8.8
-  #   !
-  #   access-list allow-all extended permit ip any any
-  #   access-group allow-all global
-  #   !
-  #   EOF
-
   labels = {
     autostop = "false"
   }
