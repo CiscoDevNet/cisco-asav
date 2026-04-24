@@ -430,6 +430,7 @@ resource "google_compute_instance_template" "asav_instance_template" {
           ssh 0.0.0.0 0.0.0.0 management
           ssh version 2
           ssh timeout 60
+          ssh scopy enable
           aaa authentication ssh console LOCAL
           !ssh authentication publickey ${var.public_key}
           username admin privilege 15

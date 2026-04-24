@@ -167,6 +167,7 @@ resource "google_compute_instance_template" "asav_instance_template" {
                 ssh 0.0.0.0 0.0.0.0 management
                 ssh version 2
                 ssh timeout 60
+                ssh scopy enable
                 aaa authentication ssh console LOCAL
                 username admin password AsAv_ClU3TeR44 privilege 15
                 username admin attributes
