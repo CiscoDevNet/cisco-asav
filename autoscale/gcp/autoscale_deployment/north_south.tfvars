@@ -7,6 +7,7 @@ region               = "region"               # e.g., "us-central1"
 machine_type     = "machine-type"     # e.g., "n1-standard-4"
 source_image_url = "source-image-url" # e.g., "projects/asav-4krn/global/images/asav-gcp-99-76-1-11"
 assign_public_ip_to_mgmt    = true    # Whether to assign a public IP to the management interface (true/false)
+enable_secure_boot          = false   # Supported from ASAv 9.24+. Set true to enable Secure Boot
 
 
 # Security and Authentication

@@ -60,6 +60,11 @@ variable "assign_public_ip_to_mgmt" {
   type        = bool
 }
 
+variable "enable_secure_boot" {
+  description = "Enable Secure Boot for ASAv instances (supported from version 9.24 onwards)."
+  type        = bool
+}
+
 variable "service_account_mail_id" {
   description = "Service account email used by the instances."
   validation {
@@ -396,6 +401,12 @@ resource "google_compute_instance_template" "asav_instance_template" {
 
   reservation_affinity {
     type = "ANY_RESERVATION"
+  }
+
+  shielded_instance_config {
+    enable_secure_boot          = var.enable_secure_boot
+    enable_vtpm                 = true
+    enable_integrity_monitoring = true
   }
 
   metadata = {

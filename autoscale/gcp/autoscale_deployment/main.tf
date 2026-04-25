@@ -66,6 +66,12 @@ variable "assign_public_ip_to_mgmt" {
   default     = false
 }
 
+variable "enable_secure_boot" {
+  description = "Enable Secure Boot for the ASAv instances (supported from version 9.24 onwards)."
+  type        = bool
+  default     = false
+}
+
 variable "public_key" {
   description = "SSH public key for instance access."
   validation {
@@ -383,6 +389,7 @@ module "asav_autoscale" {
   public_key                      = var.public_key
   service_account_mail_id         = var.service_account_mail_id
   assign_public_ip_to_mgmt        = var.assign_public_ip_to_mgmt
+  enable_secure_boot              = var.enable_secure_boot
   cpu_utilization_target          = var.cpu_utilization_target
   cool_down_period_sec            = var.cool_down_period_sec
   min_asa_count                    = var.min_asa_count
