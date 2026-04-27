@@ -128,6 +128,7 @@ crypto key generate rsa modulus 2048
 ssh 0 0 management
 ssh timeout 60
 ssh version 2
+ssh scopy enable
 username admin password AsAv_AuT0Scale privilege 15
 enable password AsAv_AuT0Scale
 username admin attributes
@@ -222,6 +223,16 @@ variable "outside_nsg_ocid" {
           can(regex("^ocid1.networksecuritygroup.", var.outside_nsg_ocid ))
         )
         error_message = "The NSG OCID must start with <ocid1.networksecuritygroup.....> and must be valid. Please check the value provided."
+      }
+}
+variable "function_subnet_ocid" {
+  description = "OCID of the subnet that is to be used for Oracle Functions, All traffic of this VCN/Subnet must be routed via NAT Gateway and public IP of this NAT GW must be allowed in security group of ASAv management interface."
+  validation {
+        condition = (
+          length(var.function_subnet_ocid) > 13 &&
+          can(regex("^ocid1.subnet.", var.function_subnet_ocid ))
+        )
+        error_message = "The subnet OCID must start with <ocid1.subnet....> and must be valid. Please check the value provided."
       }
 }
 variable "elb_listener_port" {
@@ -503,7 +514,7 @@ resource "oci_functions_application" "test_application" {
     #Required
     compartment_id = var.compartment_id
     display_name = "${var.autoscale_group_prefix}_application"
-    subnet_ids = [var.mgmt_subnet_ocid]
+    subnet_ids = [var.function_subnet_ocid]
 
     #Optional
     config = {

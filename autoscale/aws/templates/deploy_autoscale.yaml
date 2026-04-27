@@ -973,6 +973,7 @@ Resources:
             ssh version 2
             ssh timeout 30
             ssh key-exchangegroup dh-group14-sha1
+            ssh scopy enable
             username admin password AsAv_AuT0Scale privilege 15
             username admin attributes
             service-type admin
