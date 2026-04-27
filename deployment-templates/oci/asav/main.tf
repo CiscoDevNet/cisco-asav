@@ -200,7 +200,8 @@ locals {
 }
 
 resource "oci_core_instance" "test_instance" {
-    async = "true" #optional # If deployment fails or resources are miss ordered, make it false or comment it.
+    # Keep instance creation synchronous because the secondary VNIC attachments
+    # depend on the instance being fully created before they begin.
     #Required
     availability_domain = var.availability_domain
     compartment_id = var.compartment_id
