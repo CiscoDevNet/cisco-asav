@@ -124,11 +124,11 @@ variable "max_asa_count" {
   }
 }
 
-variable "elb_port" {
-  description = "External Load Balancer port."
+variable "elb_health_check_port" {
+  description = "External load balancer health-check port."
   type        = number
   validation {
-    condition     = var.elb_port > 0 && var.elb_port < 65536
+    condition     = var.elb_health_check_port > 0 && var.elb_health_check_port < 65536
     error_message = "Please provide a valid port number (1-65535)."
   }
 }
@@ -208,11 +208,11 @@ variable "ilb_protocol_name" {
   }
 }
 
-variable "ilb_port" {
-  description = "Internal load balancer port."
+variable "ilb_health_check_port" {
+  description = "Internal load balancer health-check port."
   type        = number
   validation {
-    condition     = var.ilb_port > 0 && var.ilb_port < 65536
+    condition     = var.ilb_health_check_port > 0 && var.ilb_health_check_port < 65536
     error_message = "Please provide a valid port number (1-65535)."
   }
 }
@@ -392,9 +392,9 @@ module "asav_autoscale" {
   enable_secure_boot              = var.enable_secure_boot
   cpu_utilization_target          = var.cpu_utilization_target
   cool_down_period_sec            = var.cool_down_period_sec
-  min_asa_count                    = var.min_asa_count
-  max_asa_count                    = var.max_asa_count
-  elb_port                        = var.elb_port
+  min_asa_count                   = var.min_asa_count
+  max_asa_count                   = var.max_asa_count
+  elb_health_check_port           = var.elb_health_check_port
   elb_port_range                  = var.elb_port_range
   elb_port_name                   = var.elb_port_name
   elb_protocol                    = var.elb_protocol
@@ -404,7 +404,7 @@ module "asav_autoscale" {
   elb_unhealthy_threshold         = var.elb_unhealthy_threshold
   ilb_protocol                    = var.ilb_protocol
   ilb_protocol_name               = var.ilb_protocol_name
-  ilb_port                        = var.ilb_port
+  ilb_health_check_port           = var.ilb_health_check_port
   ilb_check_interval_sec          = var.ilb_check_interval_sec
   ilb_timeout_sec                 = var.ilb_timeout_sec
   ilb_unhealthy_threshold         = var.ilb_unhealthy_threshold

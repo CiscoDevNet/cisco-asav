@@ -22,7 +22,7 @@ max_asa_count           = 2
 zone                   = "b" # Deployment zone (comma separated alphabets, 3 at most), e.g. "b,c" Valid zones : https://cloud.google.com/compute/docs/regions-zones
 
 # External Load Balancer Configuration
-elb_port                = 80
+elb_health_check_port   = 80
 elb_port_range          = "80-80"
 elb_port_name           = "tcp"
 elb_protocol            = "TCP"
@@ -34,7 +34,7 @@ elb_unhealthy_threshold = 2
 # Internal Load Balancer Configuration
 ilb_protocol             = "TCP"
 ilb_protocol_name        = "TCP"
-ilb_port                 = 80
+ilb_health_check_port    = 80
 ilb_check_interval_sec   = 10
 ilb_timeout_sec          = 5
 ilb_unhealthy_threshold  = 3
