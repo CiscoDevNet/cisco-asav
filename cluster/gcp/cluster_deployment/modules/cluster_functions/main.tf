@@ -148,7 +148,7 @@ resource "google_cloudfunctions_function" "scalein_action" {
   vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
   ingress_settings              = "ALLOW_ALL"
   min_instances                 = 0
-  max_instances                 = 4
+  max_instances                 = 16
 
   event_trigger {
     event_type = "google.pubsub.topic.publish"
@@ -170,4 +170,13 @@ resource "google_cloudfunctions_function" "scalein_action" {
     secret  = var.asav_en_password_secret_name
     version = "latest"
   }
+}
+
+# Outputs
+output "scale_out_function_name" {
+  value = google_cloudfunctions_function.scaleout_action.name
+}
+
+output "scale_in_function_name" {
+  value = google_cloudfunctions_function.scalein_action.name
 }

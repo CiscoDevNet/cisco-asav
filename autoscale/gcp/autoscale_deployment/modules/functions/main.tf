@@ -134,6 +134,8 @@ resource "google_cloudfunctions_function" "scaleout_action" {
   source_archive_bucket         = google_storage_bucket.asav_bucket.id
   source_archive_object         = google_storage_bucket_object.asav_autoscale_scaleout_action_object.name
   timeout                       = 540
+  min_instances                 = 0
+  max_instances                 = 1
   vpc_connector                 = var.vpc_connector_name
   vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
   ingress_settings              = "ALLOW_ALL"
@@ -141,6 +143,10 @@ resource "google_cloudfunctions_function" "scaleout_action" {
   event_trigger {
     event_type = "google.pubsub.topic.publish"
     resource   = google_pubsub_topic.insert.id
+  }
+
+  environment_variables = {
+    RESOURCE_NAME_PREFIX = var.resource_name_prefix
   }
 }
 
@@ -151,6 +157,8 @@ resource "google_cloudfunctions_function" "scalein_action" {
   source_archive_bucket         = google_storage_bucket.asav_bucket.id
   source_archive_object         = google_storage_bucket_object.asav_autoscale_scalein_action_object.name
   timeout                       = 300
+  min_instances                 = 0
+  max_instances                 = 1
   vpc_connector                 = var.vpc_connector_name
   vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
   ingress_settings              = "ALLOW_ALL"
@@ -159,4 +167,17 @@ resource "google_cloudfunctions_function" "scalein_action" {
     event_type = "google.pubsub.topic.publish"
     resource   = google_pubsub_topic.delete.id
   }
+
+  environment_variables = {
+    RESOURCE_NAME_PREFIX = var.resource_name_prefix
+  }
+}
+
+# Outputs
+output "scale_out_function_name" {
+  value = google_cloudfunctions_function.scaleout_action.name
+}
+
+output "scale_in_function_name" {
+  value = google_cloudfunctions_function.scalein_action.name
 }

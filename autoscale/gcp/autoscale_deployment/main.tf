@@ -60,6 +60,18 @@ variable "source_image_url" {
   }
 }
 
+variable "assign_public_ip_to_mgmt" {
+  description = "Assign public IP to management interface."
+  type        = bool
+  default     = false
+}
+
+variable "enable_secure_boot" {
+  description = "Enable Secure Boot for the ASAv instances (supported from version 9.24 onwards)."
+  type        = bool
+  default     = false
+}
+
 variable "public_key" {
   description = "SSH public key for instance access."
   validation {
@@ -107,16 +119,16 @@ variable "max_asa_count" {
   description = "The maximum ASA count allowed."
   type        = number
   validation {
-    condition     = var.max_asa_count > 0
-    error_message = "The max_asa_count must be greater than 0."
+    condition     = var.max_asa_count >= 0
+    error_message = "The max_asa_count must be greater than or equal to 0."
   }
 }
 
-variable "elb_port" {
-  description = "External Load Balancer port."
+variable "elb_health_check_port" {
+  description = "External load balancer health-check port."
   type        = number
   validation {
-    condition     = var.elb_port > 0 && var.elb_port < 65536
+    condition     = var.elb_health_check_port > 0 && var.elb_health_check_port < 65536
     error_message = "Please provide a valid port number (1-65535)."
   }
 }
@@ -196,11 +208,11 @@ variable "ilb_protocol_name" {
   }
 }
 
-variable "ilb_port" {
-  description = "Internal load balancer port."
+variable "ilb_health_check_port" {
+  description = "Internal load balancer health-check port."
   type        = number
   validation {
-    condition     = var.ilb_port > 0 && var.ilb_port < 65536
+    condition     = var.ilb_health_check_port > 0 && var.ilb_health_check_port < 65536
     error_message = "Please provide a valid port number (1-65535)."
   }
 }
@@ -249,10 +261,10 @@ variable "outside_vpc_name" {
   }
 }
 
-variable "outside_vpc_subnet" {
+variable "outside_subnet_name" {
   description = "Subnet name for the outside VPC."
   validation {
-    condition     = length(var.outside_vpc_subnet) > 0
+    condition     = length(var.outside_subnet_name) > 0
     error_message = "Please provide a valid outside VPC subnet ID or name."
   }
 }
@@ -265,10 +277,10 @@ variable "inside_vpc_name" {
   }
 }
 
-variable "inside_vpc_subnet" {
+variable "inside_subnet_name" {
   description = "Subnet name for the inside VPC."
   validation {
-    condition     = length(var.inside_vpc_subnet) > 0
+    condition     = length(var.inside_subnet_name) > 0
     error_message = "Please provide a valid inside VPC subnet ID or name."
   }
 }
@@ -281,10 +293,10 @@ variable "mgmt_vpc_name" {
   }
 }
 
-variable "mgmt_vpc_subnet" {
+variable "mgmt_subnet_name" {
   description = "Subnet name for the management VPC."
   validation {
-    condition     = length(var.mgmt_vpc_subnet) > 0
+    condition     = length(var.mgmt_subnet_name) > 0
     error_message = "Please provide a valid management VPC subnet."
   }
 }
@@ -303,6 +315,15 @@ variable "license_id_token" {
   validation {
     condition     = length(var.license_id_token) > 0
     error_message = "License ID token cannot be empty."
+  }
+}
+
+variable "license_throughput" {
+  description = "License throughput for ASAv. allowed values: 100M, 1G, 2G, 10G, 20G etc."
+  type        = string
+  validation {
+    condition     = length(var.license_throughput) > 0
+    error_message = "Please provide a valid license throughput."
   }
 }
 
@@ -367,11 +388,13 @@ module "asav_autoscale" {
   source_image_url                = var.source_image_url
   public_key                      = var.public_key
   service_account_mail_id         = var.service_account_mail_id
+  assign_public_ip_to_mgmt        = var.assign_public_ip_to_mgmt
+  enable_secure_boot              = var.enable_secure_boot
   cpu_utilization_target          = var.cpu_utilization_target
   cool_down_period_sec            = var.cool_down_period_sec
-  min_asa_count                    = var.min_asa_count
-  max_asa_count                    = var.max_asa_count
-  elb_port                        = var.elb_port
+  min_asa_count                   = var.min_asa_count
+  max_asa_count                   = var.max_asa_count
+  elb_health_check_port           = var.elb_health_check_port
   elb_port_range                  = var.elb_port_range
   elb_port_name                   = var.elb_port_name
   elb_protocol                    = var.elb_protocol
@@ -381,24 +404,63 @@ module "asav_autoscale" {
   elb_unhealthy_threshold         = var.elb_unhealthy_threshold
   ilb_protocol                    = var.ilb_protocol
   ilb_protocol_name               = var.ilb_protocol_name
-  ilb_port                        = var.ilb_port
+  ilb_health_check_port           = var.ilb_health_check_port
   ilb_check_interval_sec          = var.ilb_check_interval_sec
   ilb_timeout_sec                 = var.ilb_timeout_sec
   ilb_unhealthy_threshold         = var.ilb_unhealthy_threshold
   ilb_draining_timeout_sec        = var.ilb_draining_timeout_sec
   outside_vpc_name                = var.outside_vpc_name
-  outside_vpc_subnet              = var.outside_vpc_subnet
+  outside_subnet_name             = var.outside_subnet_name
   inside_vpc_name                 = var.inside_vpc_name
-  inside_vpc_subnet               = var.inside_vpc_subnet
+  inside_subnet_name              = var.inside_subnet_name
   mgmt_vpc_name                   = var.mgmt_vpc_name
-  mgmt_vpc_subnet                 = var.mgmt_vpc_subnet
+  mgmt_subnet_name                = var.mgmt_subnet_name
   inside_firewall_rule_name       = var.inside_firewall_rule_name
   outside_firewall_rule_name      = var.outside_firewall_rule_name
   mgmt_firewall_rule_name         = var.mgmt_firewall_rule_name
   health_check_firewall_rule_name = var.health_check_firewall_rule_name
   appserver_ip                    = var.appserver_ip
   license_id_token                = var.license_id_token
+  license_throughput              = var.license_throughput
   zone                            = var.zone
 
   depends_on = [module.asav_functions]
+}
+
+# Outputs
+
+output "elb_name" {
+  value = module.asav_autoscale.elb_name
+}
+
+output "ilb_name" {
+  value = module.asav_autoscale.ilb_name
+}
+
+output "elb_ip" {
+  value = module.asav_autoscale.elb_ip
+}
+
+output "ilb_ip" {
+  value = module.asav_autoscale.ilb_ip
+}
+
+output "outside_nat_router" {
+  value = module.asav_autoscale.outside_nat_router
+}
+
+output "outside_nat" {
+  value = module.asav_autoscale.outside_nat
+}
+
+output "instance_group_name" {
+  value = module.asav_autoscale.instance_group_name
+}
+
+output "scale_out_function_name" {
+  value = module.asav_functions.scale_out_function_name
+}
+
+output "scale_in_function_name" {
+  value = module.asav_functions.scale_in_function_name
 }
