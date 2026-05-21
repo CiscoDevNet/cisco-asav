@@ -16,6 +16,7 @@
     "inside_nsg_ocid": "ocid1.networksecuritygroup.oc1.phx.aaaaaaaasami5ga2vn5wybm2dcx5uh56476ppbevklpdvwwvuuabs7f6jmpa",
     "outside_subnet_ocid": "ocid1.subnet.oc1.phx.aaaaaaaa6yzwmbie76wxe54xaess7aw3cnqzqqa36zz754m2we44vh7khcpa",
     "outside_nsg_ocid": "ocid1.networksecuritygroup.oc1.phx.aaaaaaaaj4dort6ii6sr2gs4fxtwbnhlpm2ks5bhdnyck227jqdct7kbtmwq",
+    "function_subnet_ocid":"ocid1.subnet.oc1.phx.aaaaaaaa56xfaijllsh37vhx7yvpwldmtl5osvqfkzag3tmaeuqm6fsgt6kq",
     "elb_listener_port": "80",
     "ilb_listener_port": "80",
     "health_check_port": "8080",

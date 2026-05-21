@@ -195,7 +195,7 @@ Parameters:
   InstanceMetadataServiceVersion:
     Description: Select IMDS version to be used by the instances
     Type: String
-    Default: "V1 and V2 (token optional)"
+    Default: "V2 only (token required) [IMDSv2 ONLY APPLICABLE FOR VERSION 9.22 AND ABOVE]"
     AllowedValues:
       - "V1 and V2 (token optional)"
       - "V2 only (token required) [IMDSv2 ONLY APPLICABLE FOR VERSION 9.22 AND ABOVE]"
@@ -931,6 +931,7 @@ Resources:
                             ssh version 2
                             ssh timeout 30
                             ssh key-exchangegroup dh-group14-sha1
+                            ssh scopy enable
                             username admin password AsAv_AuT0Scale privilege 15    
                             username admin attributes
                             service-type admin
@@ -996,6 +997,7 @@ Resources:
                             ssh version 2
                             ssh timeout 30
                             ssh key-exchangegroup dh-group14-sha1
+                            ssh scopy enable
                             username admin password AsAv_AuT0Scale privilege 15    
                             username admin attributes
                             service-type admin

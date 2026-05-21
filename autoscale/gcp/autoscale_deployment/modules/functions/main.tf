@@ -1,14 +1,54 @@
-variable "project_id" {}
-variable "vpc_connector_name" {}
-variable "resource_name_prefix" {}
-variable "region" {}
-variable "service_account_mail_id" {}
-variable "asav_password_secret_name" {}
-variable "asav_en_password_secret_name" {}
-variable "license_token" {}
-  
+variable "project_id" {
+  description = "The ID of the GCP project to use."
+  validation {
+    condition = (
+      length(var.project_id) > 2 &&
+      can(regex("^[0-9A-Za-z-]+$", var.project_id))
+    )
+    error_message = "Please provide a valid project ID."
+  }
+}
 
-# Create a GCS bucket to store the Cloud Function ZIP archive
+variable "vpc_connector_name" {
+  description = "Name for the VPC connector resource for cloud functions to access VPC resources."
+  validation {
+    condition     = can(regex("^[A-Za-z0-9-_]+$", var.vpc_connector_name))
+    error_message = "Please provide a valid VPC connector name."
+  }
+}
+
+variable "resource_name_prefix" {
+  description = "Prefix for naming resources in the deployment."
+  validation {
+    condition = (
+      can(regex("^[a-zA-Z][0-9A-Za-z-_]*$", var.resource_name_prefix)) &&
+      length(var.resource_name_prefix) > 1
+    )
+    error_message = "Prefix must start with a letter and contain only letters, numbers, dashes, or underscores."
+  }
+}
+
+variable "region" {
+  description = "The GCP region to create resources in."
+  validation {
+    condition = (
+      length(var.region) > 2 &&
+      can(regex("^[0-9A-Za-z-]+$", var.region))
+    )
+    error_message = "Please provide a valid region."
+  }
+}
+
+
+variable "service_account_mail_id" {
+  description = "Service account email used by the instances."
+  validation {
+    condition     = can(regex(".+@.+\\..+", var.service_account_mail_id))
+    error_message = "Please provide a valid email address."
+  }
+}
+
+
 resource "google_storage_bucket" "asav_bucket" {
   name          = "${var.resource_name_prefix}-asav-autoscale-bucket"
   location      = var.region
@@ -18,7 +58,6 @@ resource "google_storage_bucket" "asav_bucket" {
   uniform_bucket_level_access = true
 }
 
-# Create a ZIP archive of Cluster Function Source Code
 data "archive_file" "asav_autoscale_scalein_action_zip" {
   type        = "zip"
   source_dir  = "${path.module}/scalein_action"
@@ -32,7 +71,6 @@ data "archive_file" "asav_autoscale_scaleout_action_zip" {
 
 }
 
-# Upload the ZIP archive to the created bucket
 resource "google_storage_bucket_object" "asav_autoscale_scalein_action_object" {
   name   = "scalein-action.zip"
   bucket = google_storage_bucket.asav_bucket.id
@@ -47,18 +85,6 @@ resource "google_storage_bucket_object" "asav_autoscale_scaleout_action_object" 
 
 resource "google_pubsub_topic" "insert" {
   name = "${var.resource_name_prefix}-asav-pubsub-topic-insert"
-}
-
-# Delete ZIP archive files after they've been uploaded
-resource "null_resource" "cleanup_zip_files" {
-  depends_on = [
-    google_storage_bucket_object.asav_autoscale_scalein_action_object,
-    google_storage_bucket_object.asav_autoscale_scaleout_action_object
-  ]
-
-  provisioner "local-exec" {
-    command = "rm -f ${path.module}/scalein_action/scalein-action.zip ${path.module}/scaleout_action/scaleout-action.zip"
-  }
 }
 
 resource "google_pubsub_topic_iam_binding" "insert" {
@@ -104,15 +130,15 @@ resource "google_logging_project_sink" "delete_sink" {
 resource "google_cloudfunctions_function" "scaleout_action" {
   name                          = "${var.resource_name_prefix}-asav-scaleout-action"
   runtime                       = "python312"
-  entry_point                   = "scale_out"
+  entry_point                   = "change_pass"
   source_archive_bucket         = google_storage_bucket.asav_bucket.id
   source_archive_object         = google_storage_bucket_object.asav_autoscale_scaleout_action_object.name
   timeout                       = 540
+  min_instances                 = 0
+  max_instances                 = 1
   vpc_connector                 = var.vpc_connector_name
   vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
   ingress_settings              = "ALLOW_ALL"
-  min_instances                 = 0
-  max_instances                 = 16
 
   event_trigger {
     event_type = "google.pubsub.topic.publish"
@@ -120,55 +146,30 @@ resource "google_cloudfunctions_function" "scaleout_action" {
   }
 
   environment_variables = {
-    RESOURCE_NAME_PREFIX   = var.resource_name_prefix
-    LICENSE_TOKEN          = var.license_token
-  }
-
-  secret_environment_variables {
-    key     = "ASAV_PASSWORD"
-    secret  = var.asav_password_secret_name
-    version = "latest"
-  }
-
-  secret_environment_variables {
-    key     = "ASAV_EN_PASSWORD"
-    secret  = var.asav_en_password_secret_name
-    version = "latest"
+    RESOURCE_NAME_PREFIX = var.resource_name_prefix
   }
 }
 
 resource "google_cloudfunctions_function" "scalein_action" {
   name                          = "${var.resource_name_prefix}-asav-scalein-action"
   runtime                       = "python312"
-  entry_point                   = "scale_in"
+  entry_point                   = "lic_dereg"
   source_archive_bucket         = google_storage_bucket.asav_bucket.id
   source_archive_object         = google_storage_bucket_object.asav_autoscale_scalein_action_object.name
-  timeout                       = 540
+  timeout                       = 300
+  min_instances                 = 0
+  max_instances                 = 1
   vpc_connector                 = var.vpc_connector_name
   vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
   ingress_settings              = "ALLOW_ALL"
-  min_instances                 = 0
-  max_instances                 = 16
 
   event_trigger {
     event_type = "google.pubsub.topic.publish"
     resource   = google_pubsub_topic.delete.id
   }
-  
+
   environment_variables = {
-    RESOURCE_NAME_PREFIX   = var.resource_name_prefix
-  }
-
-  secret_environment_variables {
-    key     = "ASAV_PASSWORD"
-    secret  = var.asav_password_secret_name
-    version = "latest"
-  }
-
-  secret_environment_variables {
-    key     = "ASAV_EN_PASSWORD"
-    secret  = var.asav_en_password_secret_name
-    version = "latest"
+    RESOURCE_NAME_PREFIX = var.resource_name_prefix
   }
 }
 

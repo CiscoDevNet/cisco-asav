@@ -24,6 +24,8 @@ variable "mgmt_firewall_rule_name" {}
 variable "outside_firewall_rule_name" {}
 variable "inside_firewall_rule_name" {}
 variable "ccl_firewall_rule_name" {}
+variable "inside_hc_firewall_rule_name" {}
+variable "outside_hc_firewall_rule_name" {}
 
 variable "public_key" {}
 variable "assign_public_ip_to_mgmt" {}
@@ -41,10 +43,13 @@ variable "license_token" {}
 variable "ilb_backend_protocol" {}
 variable "ilb_frontend_protocol" {}
 variable "ilb_health_check_port" {}
-
 variable "ilb_check_interval_sec" {}
 variable "ilb_timeout_sec" {}
 variable "ilb_unhealthy_threshold" {}
+variable "ilb_draining_timeout_sec" {}
+
+variable "enable_secure_boot" {}
+
 
 data "google_compute_subnetwork" "inside_subnet" {
   name = var.inside_subnet_name
@@ -65,7 +70,9 @@ resource "google_compute_instance_template" "asav_instance_template" {
     var.mgmt_firewall_rule_name,
     var.outside_firewall_rule_name,
     var.inside_firewall_rule_name,
-    var.ccl_firewall_rule_name
+    var.ccl_firewall_rule_name,
+    var.inside_hc_firewall_rule_name,
+    var.outside_hc_firewall_rule_name
   ])
 
   disk {
@@ -160,6 +167,7 @@ resource "google_compute_instance_template" "asav_instance_template" {
                 ssh 0.0.0.0 0.0.0.0 management
                 ssh version 2
                 ssh timeout 60
+                ssh scopy enable
                 aaa authentication ssh console LOCAL
                 username admin password AsAv_ClU3TeR44 privilege 15
                 username admin attributes
@@ -216,6 +224,11 @@ resource "google_compute_instance_template" "asav_instance_template" {
       "https://www.googleapis.com/auth/trace.append",
     ]
   }
+  shielded_instance_config {
+    enable_secure_boot          = var.enable_secure_boot
+    enable_vtpm                 = true
+    enable_integrity_monitoring = true
+  }
   depends_on = [
     google_compute_address.ilb_ip_inside,
     google_compute_address.ilb_ip_outside
@@ -253,12 +266,13 @@ resource "google_compute_region_autoscaler" "asav_autoscaler" {
 }
 
 # ILB-Inside
-resource "google_compute_region_backend_service" "asav_backend_service_ilb_inside" {
-  name                  = "${var.resource_name_prefix}-asav-backend-ilb-inside"
-  region                = var.region
-  protocol              = var.ilb_backend_protocol
-  load_balancing_scheme = "INTERNAL"
-  network               = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
+resource "google_compute_region_backend_service" "asav_ilb_inside" {
+  name                            = "${var.resource_name_prefix}-asav-ilb-inside"
+  region                          = var.region
+  protocol                        = var.ilb_backend_protocol
+  load_balancing_scheme           = "INTERNAL"
+  network                         = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
+  connection_draining_timeout_sec = var.ilb_draining_timeout_sec
 
   backend {
     balancing_mode = "CONNECTION"
@@ -286,7 +300,7 @@ resource "google_compute_forwarding_rule" "asav_fr_ilb_inside" {
   all_ports             = true
   load_balancing_scheme = "INTERNAL"
   ip_address            = google_compute_address.ilb_ip_inside.self_link
-  backend_service       = google_compute_region_backend_service.asav_backend_service_ilb_inside.self_link
+  backend_service       = google_compute_region_backend_service.asav_ilb_inside.self_link
   network               = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
   subnetwork            = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_subnet_name}"
   ip_protocol           = contains(["TCP", "UDP"], var.ilb_backend_protocol) ? var.ilb_backend_protocol : var.ilb_frontend_protocol
@@ -300,12 +314,13 @@ resource "google_compute_address" "ilb_ip_inside" {
 }
 
 # ILB-Outside
-resource "google_compute_region_backend_service" "asav_backend_service_ilb_outside" {
-  name                  = "${var.resource_name_prefix}-asav-backend-ilb-outside"
-  region                = var.region
-  protocol              = var.ilb_backend_protocol
-  load_balancing_scheme = "INTERNAL"
-  network               = "projects/${var.project_id}/global/networks/${var.outside_vpc_name}"
+resource "google_compute_region_backend_service" "asav_ilb_outside" {
+  name                            = "${var.resource_name_prefix}-asav-ilb-outside"
+  region                          = var.region
+  protocol                        = var.ilb_backend_protocol
+  load_balancing_scheme           = "INTERNAL"
+  network                         = "projects/${var.project_id}/global/networks/${var.outside_vpc_name}"
+  connection_draining_timeout_sec = var.ilb_draining_timeout_sec
 
   backend {
     balancing_mode = "CONNECTION"
@@ -333,7 +348,7 @@ resource "google_compute_forwarding_rule" "asav_fr_ilb_outside" {
   all_ports             = true
   load_balancing_scheme = "INTERNAL"
   ip_address            = google_compute_address.ilb_ip_outside.self_link
-  backend_service       = google_compute_region_backend_service.asav_backend_service_ilb_outside.self_link
+  backend_service       = google_compute_region_backend_service.asav_ilb_outside.self_link
   network               = "projects/${var.project_id}/global/networks/${var.outside_vpc_name}"
   subnetwork            = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.outside_subnet_name}"
   ip_protocol           = contains(["TCP", "UDP"], var.ilb_backend_protocol) ? var.ilb_backend_protocol : var.ilb_frontend_protocol
@@ -344,4 +359,25 @@ resource "google_compute_address" "ilb_ip_outside" {
   address_type = "INTERNAL"
   region       = var.region
   subnetwork   = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.outside_subnet_name}"
+}
+
+# Outputs
+output "ilb_in_name" {
+  value = google_compute_forwarding_rule.asav_fr_ilb_inside.name
+}
+
+output "ilb_out_name" {
+  value = google_compute_forwarding_rule.asav_fr_ilb_outside.name
+}
+
+output "ilb_in_ip" {
+  value = google_compute_address.ilb_ip_inside.address
+}
+
+output "ilb_out_ip" {
+  value = google_compute_address.ilb_ip_outside.address
+}
+
+output "instance_group_name" {
+  value = google_compute_region_instance_group_manager.asav_instance_group.name
 }
