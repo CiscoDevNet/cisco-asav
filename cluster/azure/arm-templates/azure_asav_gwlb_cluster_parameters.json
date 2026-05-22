@@ -45,7 +45,7 @@
       "value": "7777"
     },
     "asaLicensingSku": {
-      "value": "asav-azure-byol"
+      "value": "byol"
     },
     "softwareVersion": {
       "value": "9231.0.0"
