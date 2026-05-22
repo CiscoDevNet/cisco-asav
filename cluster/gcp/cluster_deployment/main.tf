@@ -5,7 +5,7 @@ provider "google" {
 
 variable "type_of_deployment" {
   validation {
-    condition     = var.type_of_deployment == "east_west" || var.type_of_deployment == "north_south"
+    condition     = lower(var.type_of_deployment) == "east_west" || lower(var.type_of_deployment) == "north_south"
     error_message = "Invalid deployment type. Must be either 'east_west' or 'north_south'."
   }
   description = "This variable determines the type of deployment for the cluster."
@@ -34,8 +34,9 @@ variable "resource_name_prefix" {
   description = "Prefix for naming resources in the deployment."
   validation {
     condition = (
-      can(regex("^[a-zA-Z][0-9A-Za-z-_]*$", var.resource_name_prefix)) &&
-      length(var.resource_name_prefix) > 1
+      can(regex("^[a-z][0-9a-z]*$", var.resource_name_prefix)) &&
+      length(var.resource_name_prefix) > 1 &&
+      length(var.resource_name_prefix) <= 15
     )
     error_message = "Prefix must start with a letter and contain only letters, numbers, dashes, or underscores."
   }
@@ -170,7 +171,14 @@ variable "ccl_subnet_name" {
   description = "Subnet name for the management VPC."
   validation {
     condition     = length(var.ccl_subnet_name) > 0
-    error_message = "Please provide a valid management VPC subnet."
+    error_message = "CCL subnet name cannot be empty."
+  }
+}
+
+variable "cluster_grp_name" {
+  validation {
+    condition     = length(var.cluster_grp_name) > 0
+    error_message = "Cluster group name cannot be empty."
   }
 }
 
@@ -218,6 +226,22 @@ variable "ccl_firewall_rule_name" {
   description = "Firewall rule name for ccl traffic."
   validation {
     condition     = can(regex("^[A-Za-z0-9-_]+$", var.ccl_firewall_rule_name))
+    error_message = "Firewall rule name can only include letters, numbers, dashes, or underscores."
+  }
+}
+
+variable "inside_hc_firewall_rule_name" {
+  description = "Firewall rule name for inside health check traffic."
+  validation {
+    condition     = can(regex("^[A-Za-z0-9-_]+$", var.inside_hc_firewall_rule_name))
+    error_message = "Firewall rule name can only include letters, numbers, dashes, or underscores."
+  }
+}
+
+variable "outside_hc_firewall_rule_name" {
+  description = "Firewall rule name for outside health check traffic."
+  validation {
+    condition     = can(regex("^[A-Za-z0-9-_]+$", var.outside_hc_firewall_rule_name))
     error_message = "Firewall rule name can only include letters, numbers, dashes, or underscores."
   }
 }
@@ -273,40 +297,25 @@ variable "max_asa_count" {
   description = "The maximum ASA count allowed."
   type        = number
   validation {
-    condition     = var.max_asa_count > 0
+    condition     = var.max_asa_count > 0 && var.max_asa_count <= 16
     error_message = "The max_asa_count must be greater than 0."
   }
 }
 
-variable "elb_health_check_port" {
-  description = "External Load Balancer health check port."
+variable "elb_draining_timeout_sec" {
+  description = "Timeout for draining connections on the ELB."
   type        = number
   validation {
-    condition     = var.elb_health_check_port > 0 && var.elb_health_check_port < 65536
-    error_message = "Please provide a valid port number (1-65535)."
+    condition     = var.elb_draining_timeout_sec > 0
+    error_message = "Please provide a positive draining timeout."
   }
 }
 
 variable "elb_front_end_ports" {
-  description = "Range for the external load balancer ports."
-  type        = string
-}
-
-variable "elb_frontend_protocol" {
-  description = "Frontend protocol for the external LB (Allowed Values: TCP, UDP)."
-  type = string
+  default = [80, 443, 22]
   validation {
-    condition     = var.elb_frontend_protocol == "TCP" || var.elb_frontend_protocol == "UDP" 
-    error_message = "Please provide a valid LB protocol."
-  }
-}
-
-variable "elb_backend_protocol" {
-  description = "Frontend protocol for the external LB (Allowed Values: TCP, UDP, UNSPECIFIED)."
-  type = string
-  validation {
-    condition     = var.elb_backend_protocol == "TCP" || var.elb_backend_protocol == "UDP" || var.elb_backend_protocol == "UNSPECIFIED" 
-    error_message = "Please provide a valid LB protocol."
+    condition     = length(var.elb_front_end_ports) > 0 || var.elb_front_end_ports == "all"
+    error_message = "ELB frontend ports must be null or non-empty."
   }
 }
 
@@ -342,7 +351,7 @@ variable "ilb_frontend_protocol" {
   type = string
   validation {
     condition     = var.ilb_frontend_protocol == "TCP" || var.ilb_frontend_protocol == "UDP" 
-    error_message = "Please provide a valid LB protocol."
+    error_message = "Frontend protocol for the internal LB must be either 'TCP' or 'UDP'."
   }
 }
 
@@ -352,6 +361,14 @@ variable "ilb_backend_protocol" {
   validation {
     condition     = var.ilb_backend_protocol == "TCP" || var.ilb_backend_protocol == "UDP" || var.ilb_backend_protocol == "UNSPECIFIED" 
     error_message = "Please provide a valid LB protocol."
+  }
+}
+
+variable "ilb_draining_timeout_sec" {
+  default = 60
+  validation {
+    condition     = var.ilb_draining_timeout_sec > 0
+    error_message = "ILB draining timeout seconds must be a positive integer."
   }
 }
 
@@ -387,8 +404,40 @@ variable "ilb_unhealthy_threshold" {
   type        = number
   validation {
     condition     = var.ilb_unhealthy_threshold > 0
-    error_message = "Please provide a valid unhealthy threshold."
+    error_message = "ILB unhealthy threshold must be a positive integer."
   }
+}
+
+variable "elb_health_check_port" {
+  default = 80
+  validation {
+    condition     = var.elb_health_check_port == null || var.elb_health_check_port > 0
+    error_message = "ELB port must be null or a positive integer."
+  }
+}
+
+variable "elb_frontend_protocol" {
+  description = "Frontend protocol for the external LB (Allowed Values: TCP, UDP)."
+  type        = string
+  validation {
+    condition     = var.elb_frontend_protocol == "TCP" || var.elb_frontend_protocol == "UDP"
+    error_message = "Please provide a valid LB protocol."
+  }
+}
+
+variable "elb_backend_protocol" {
+  description = "Frontend protocol for the external LB (Allowed Values: TCP, UDP, UNSPECIFIED)."
+  type        = string
+  validation {
+    condition     = var.elb_backend_protocol == "TCP" || var.elb_backend_protocol == "UDP" || var.elb_backend_protocol == "UNSPECIFIED"
+    error_message = "Please provide a valid LB protocol."
+  }
+}
+
+variable "enable_secure_boot" {
+  description = "Enable Secure Boot for the instance."
+  type        = bool
+  default     = false
 }
 
 variable "license_id_token" {
@@ -405,14 +454,6 @@ variable "license_throughput" {
   validation {
     condition     = length(var.license_throughput) > 0
     error_message = "Please provide a valid license throughput."
-  }
-}
-
-variable "cluster_grp_name" {
-  description = "Name of the cluster group."
-  validation {
-    condition     = length(var.cluster_grp_name) > 0
-    error_message = "Cluster group name cannot be empty."
   }
 }
 
@@ -462,6 +503,8 @@ module "north_south" {
   outside_firewall_rule_name      = var.outside_firewall_rule_name
   mgmt_firewall_rule_name         = var.mgmt_firewall_rule_name
   ccl_firewall_rule_name          = var.ccl_firewall_rule_name
+  inside_hc_firewall_rule_name    = var.inside_hc_firewall_rule_name
+  outside_hc_firewall_rule_name   = var.outside_hc_firewall_rule_name
   assign_public_ip_to_mgmt        = var.assign_public_ip_to_mgmt
   auto_scaling                    = var.auto_scaling
   cpu_utilization_target          = var.cpu_utilization_target
@@ -475,12 +518,15 @@ module "north_south" {
   elb_timeout_sec                 = var.elb_timeout_sec
   elb_check_interval_sec          = var.elb_check_interval_sec
   elb_unhealthy_threshold         = var.elb_unhealthy_threshold
+  elb_draining_timeout_sec        = var.elb_draining_timeout_sec
   ilb_frontend_protocol           = var.ilb_frontend_protocol
   ilb_backend_protocol            = var.ilb_backend_protocol
   ilb_health_check_port           = var.ilb_health_check_port
   ilb_check_interval_sec          = var.ilb_check_interval_sec
   ilb_timeout_sec                 = var.ilb_timeout_sec
   ilb_unhealthy_threshold         = var.ilb_unhealthy_threshold
+  ilb_draining_timeout_sec        = var.ilb_draining_timeout_sec
+  enable_secure_boot              = var.enable_secure_boot
   license_throughput              = var.license_throughput
   license_token                   = var.license_id_token
   
@@ -515,6 +561,8 @@ module "east_west" {
   outside_firewall_rule_name      = var.outside_firewall_rule_name
   mgmt_firewall_rule_name         = var.mgmt_firewall_rule_name
   ccl_firewall_rule_name          = var.ccl_firewall_rule_name
+  inside_hc_firewall_rule_name    = var.inside_hc_firewall_rule_name
+  outside_hc_firewall_rule_name   = var.outside_hc_firewall_rule_name
   assign_public_ip_to_mgmt        = var.assign_public_ip_to_mgmt
   auto_scaling                    = var.auto_scaling
   cpu_utilization_target          = var.cpu_utilization_target
@@ -527,8 +575,64 @@ module "east_west" {
   ilb_check_interval_sec          = var.ilb_check_interval_sec
   ilb_timeout_sec                 = var.ilb_timeout_sec
   ilb_unhealthy_threshold         = var.ilb_unhealthy_threshold
+  ilb_draining_timeout_sec        = var.ilb_draining_timeout_sec
+  enable_secure_boot              = var.enable_secure_boot
   license_throughput              = var.license_throughput
   license_token                   = var.license_id_token
 
   depends_on = [resource.time_sleep.wait_for_function]
+}
+
+# Outputs
+
+output "elb_name" {
+  value = var.type_of_deployment == "north_south" ? module.north_south[0].elb_name : null
+}
+
+output "ilb_name" {
+  value = var.type_of_deployment == "north_south" ? module.north_south[0].ilb_name : null
+}
+
+output "ilb_in_name" {
+  value = var.type_of_deployment == "east_west" ? module.east_west[0].ilb_in_name : null
+}
+
+output "ilb_out_name" {
+  value = var.type_of_deployment == "east_west" ? module.east_west[0].ilb_out_name : null
+}
+
+output "elb_ip" {
+  value = var.type_of_deployment == "north_south" ? module.north_south[0].elb_ip : null
+}
+
+output "ilb_ip" {
+  value = var.type_of_deployment == "north_south" ? module.north_south[0].ilb_ip : null
+}
+
+output "ilb_in_ip" {
+  value = var.type_of_deployment == "east_west" ? module.east_west[0].ilb_in_ip : null
+}
+
+output "ilb_out_ip" {
+  value = var.type_of_deployment == "east_west" ? module.east_west[0].ilb_out_ip : null
+}
+
+output "outside_nat_router" {
+  value = var.type_of_deployment == "north_south" ? module.north_south[0].outside_nat_router : null
+}
+
+output "outside_nat" {
+  value = var.type_of_deployment == "north_south" ? module.north_south[0].outside_nat : null
+}
+
+output "instance_group_name" {
+  value = var.type_of_deployment == "north_south" ? one(module.north_south[*].instance_group_name) : one(module.east_west[*].instance_group_name)
+}
+
+output "scale_out_function_name" {
+  value = module.cluster_functions.scale_out_function_name
+}
+
+output "scale_in_function_name" {
+  value = module.cluster_functions.scale_in_function_name
 }
