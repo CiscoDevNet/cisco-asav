@@ -208,20 +208,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Prefix}-inside-rt
-  InsideRouteToInternet:
-    Type: AWS::EC2::Route
-    DependsOn: InternetGatewayAttachment
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-      RouteTableId: !Ref InsideRouteTable
-  InsideRouteToInternetIpv6:
-    Type: AWS::EC2::Route
-    DependsOn: InternetGatewayAttachment
-    Properties:
-      DestinationIpv6CidrBlock: ::/0
-      GatewayId: !Ref InternetGateway
-      RouteTableId: !Ref InsideRouteTable
   InsideSubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -234,20 +220,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${Prefix}-outside-rt
-  OutsideRouteToInternet:
-    Type: AWS::EC2::Route
-    DependsOn: InternetGatewayAttachment
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-      RouteTableId: !Ref OutsideRouteTable
-  OutsideRouteToInternetIpv6:
-    Type: AWS::EC2::Route
-    DependsOn: InternetGatewayAttachment
-    Properties:
-      DestinationIpv6CidrBlock: ::/0
-      GatewayId: !Ref InternetGateway
-      RouteTableId: !Ref OutsideRouteTable
   OutsideSubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
