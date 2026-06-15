@@ -47,6 +47,9 @@
     "imageId": {
       "value": ""
     },
+    "bootMode": {
+      "value": "bios"
+    },
     "vmSize": {
       "value": "Standard_D3_v2"
     },
