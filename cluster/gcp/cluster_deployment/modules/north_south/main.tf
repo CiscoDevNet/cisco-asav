@@ -25,6 +25,8 @@ variable "mgmt_firewall_rule_name" {}
 variable "outside_firewall_rule_name" {}
 variable "inside_firewall_rule_name" {}
 variable "ccl_firewall_rule_name" {}
+variable "inside_hc_firewall_rule_name" {}
+variable "outside_hc_firewall_rule_name" {}
 
 variable "public_key" {}
 variable "assign_public_ip_to_mgmt" {}
@@ -39,21 +41,24 @@ variable "cpu_utilization_target" {}
 variable "license_throughput" {}
 variable "license_token" {}
 
-variable "elb_backend_protocol" {}
-variable "elb_frontend_protocol" {}
 variable "ilb_backend_protocol" {}
 variable "ilb_frontend_protocol" {}
-
 variable "ilb_health_check_port" {}
 variable "ilb_check_interval_sec" {}
 variable "ilb_timeout_sec" {}
 variable "ilb_unhealthy_threshold" {}
+variable "ilb_draining_timeout_sec" {}
 
+variable "elb_backend_protocol" {}
+variable "elb_frontend_protocol" {}
 variable "elb_check_interval_sec" {}
 variable "elb_health_check_port" {}
 variable "elb_timeout_sec" {}
 variable "elb_unhealthy_threshold" {}
 variable "elb_front_end_ports" {}
+variable "elb_draining_timeout_sec" {}
+
+variable "enable_secure_boot" {}
 
 data "google_compute_subnetwork" "inside_subnet" {
   name = var.inside_subnet_name
@@ -74,8 +79,10 @@ resource "google_compute_instance_template" "asav_instance_template" {
     var.mgmt_firewall_rule_name,
     var.outside_firewall_rule_name,
     var.inside_firewall_rule_name,
-    var.ccl_firewall_rule_name
-  ]) 
+    var.ccl_firewall_rule_name,
+    var.inside_hc_firewall_rule_name,
+    var.outside_hc_firewall_rule_name
+  ])
 
   disk {
     boot         = true
@@ -169,6 +176,7 @@ resource "google_compute_instance_template" "asav_instance_template" {
                 ssh 0.0.0.0 0.0.0.0 management
                 ssh version 2
                 ssh timeout 60
+                ssh scopy enable
                 aaa authentication ssh console LOCAL
                 username admin password AsAv_ClU3TeR44 privilege 15
                 username admin attributes
@@ -225,6 +233,11 @@ resource "google_compute_instance_template" "asav_instance_template" {
       "https://www.googleapis.com/auth/trace.append",
     ]
   }
+  shielded_instance_config {
+    enable_secure_boot          = var.enable_secure_boot
+    enable_vtpm                 = true
+    enable_integrity_monitoring = true
+  }
   depends_on = [
     google_compute_address.elb_ip,
     google_compute_address.ilb_ip
@@ -262,12 +275,13 @@ resource "google_compute_region_autoscaler" "asav_autoscaler" {
 }
 
 #ELB
-resource "google_compute_region_backend_service" "asav_backend_service_elb" {
-  name                  = "${var.resource_name_prefix}-asav-backend-service-elb"
-  region                = var.region
-  port_name             = "tcp"
-  protocol              = var.elb_backend_protocol
-  load_balancing_scheme = "EXTERNAL"
+resource "google_compute_region_backend_service" "asav_elb" {
+  name                            = "${var.resource_name_prefix}-asav-elb"
+  region                          = var.region
+  port_name                       = "tcp"
+  protocol                        = var.elb_backend_protocol
+  load_balancing_scheme           = "EXTERNAL"
+  connection_draining_timeout_sec = var.elb_draining_timeout_sec
 
   backend {
     balancing_mode = "CONNECTION"
@@ -300,12 +314,12 @@ resource "google_compute_forwarding_rule" "asav_fr_elb" {
   ip_protocol           = var.elb_frontend_protocol
   load_balancing_scheme = "EXTERNAL"
   ip_address            = google_compute_address.elb_ip.self_link
-  backend_service       = google_compute_region_backend_service.asav_backend_service_elb.self_link
+  backend_service       = google_compute_region_backend_service.asav_elb.self_link
 
   ports = var.elb_front_end_ports
 
   depends_on = [
-    google_compute_region_backend_service.asav_backend_service_elb,
+    google_compute_region_backend_service.asav_elb,
     google_compute_address.elb_ip
   ]
 }
@@ -317,12 +331,12 @@ resource "google_compute_forwarding_rule" "asav_fr_elb1" {
   ip_protocol           = var.elb_frontend_protocol
   load_balancing_scheme = "EXTERNAL"
   ip_address            = google_compute_address.elb_ip.self_link
-  backend_service       = google_compute_region_backend_service.asav_backend_service_elb.self_link
+  backend_service       = google_compute_region_backend_service.asav_elb.self_link
 
   all_ports = true
   
   depends_on = [
-    google_compute_region_backend_service.asav_backend_service_elb,
+    google_compute_region_backend_service.asav_elb,
     google_compute_address.elb_ip
   ]
 }
@@ -334,12 +348,13 @@ resource "google_compute_address" "elb_ip" {
 }
 
 # ILB
-resource "google_compute_region_backend_service" "asav_backend_service_ilb" {
-  name                  = "${var.resource_name_prefix}-asav-backend-service-ilb"
-  region                = var.region
-  protocol              = var.ilb_backend_protocol
-  load_balancing_scheme = "INTERNAL"
-  network               = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
+resource "google_compute_region_backend_service" "asav_ilb" {
+  name                            = "${var.resource_name_prefix}-asav-ilb"
+  region                          = var.region
+  protocol                        = var.ilb_backend_protocol
+  load_balancing_scheme           = "INTERNAL"
+  network                         = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
+  connection_draining_timeout_sec = var.ilb_draining_timeout_sec
 
   backend {
     balancing_mode = "CONNECTION"
@@ -367,7 +382,7 @@ resource "google_compute_forwarding_rule" "asav_fr_ilb" {
   all_ports             = true
   load_balancing_scheme = "INTERNAL"
   ip_address            = google_compute_address.ilb_ip.self_link
-  backend_service       = google_compute_region_backend_service.asav_backend_service_ilb.self_link
+  backend_service       = google_compute_region_backend_service.asav_ilb.self_link
   network               = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
   subnetwork            = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_subnet_name}"
 }
@@ -392,4 +407,36 @@ resource "google_compute_router_nat" "cloud_nat" {
 
   nat_ip_allocate_option             = "AUTO_ONLY"
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+}
+
+# Outputs
+output "elb_name" {
+  value = one(concat(
+    google_compute_forwarding_rule.asav_fr_elb[*].name,
+    google_compute_forwarding_rule.asav_fr_elb1[*].name
+  ))
+}
+
+output "ilb_name" {
+  value = google_compute_forwarding_rule.asav_fr_ilb.name
+}
+
+output "elb_ip" {
+  value = google_compute_address.elb_ip.address
+}
+
+output "ilb_ip" {
+  value = google_compute_address.ilb_ip.address
+}
+
+output "outside_nat_router" {
+  value = google_compute_router.cloud_nat_router.name
+}
+
+output "outside_nat" {
+  value = google_compute_router_nat.cloud_nat.name
+}
+
+output "instance_group_name" {
+  value = google_compute_region_instance_group_manager.asav_instance_group.name
 }

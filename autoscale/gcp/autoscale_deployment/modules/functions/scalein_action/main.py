@@ -13,8 +13,9 @@ limitations under the License.
 --------------------------------------------------------------------------------
 Name:       main.py
 Purpose:    main function
-PreRequisites: User has to create "asav-private-key",
-               "asav-en-password"
+PreRequisites: User has to create "<resource_name_prefix>-private-key",
+               "<resource_name_prefix>-enable-password",
+               "<resource_name_prefix>-ssh-password"
 """
 import base64
 import json
@@ -40,6 +41,11 @@ def lic_dereg(data, context):
      data_buffer = base64.b64decode(data['data'])
      log_entry = json.loads(data_buffer)
 
+     resource_name_prefix = os.getenv('RESOURCE_NAME_PREFIX')
+     if not resource_name_prefix:
+          print("ERROR: RESOURCE_NAME_PREFIX environment variable not set")
+          return
+
      # To get the Instance Name
      resourceName = log_entry['protoPayload']['resourceName']
      pos = resourceName.find("instances/")
@@ -50,23 +56,21 @@ def lic_dereg(data, context):
      response = api.instances().get(project=project_id, zone=zone, instance=instanceName).execute()
      internal_ip = response['networkInterfaces'][2]['networkIP']
 
-
      user = "admin"
- 
-     secret_id = "asav-private-key"
+
+     secret_id = f"{resource_name_prefix}-private-key"
      version_id = "1"
      pKey = bf.secretCode(project_id, secret_id, version_id)
      pKey = StringIO(pKey)
      pKey = paramiko.RSAKey.from_private_key(pKey)
 
-     #CSCvz02270
-     secret_id = "asav-new-password"
+     secret_id = f"{resource_name_prefix}-ssh-password"
      version_id = "1"
      password = bf.secretCode(project_id, secret_id, version_id)
 
      status,channel,ssh = bf.establishingConnection(internal_ip, user, pKey, 10,password)
 
-     secret_id = "asav-en-password"
+     secret_id = f"{resource_name_prefix}-enable-password"
      version_id = "1"
      en_password = bf.secretCode(project_id, secret_id, version_id)
      

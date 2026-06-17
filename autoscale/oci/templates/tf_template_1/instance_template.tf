@@ -128,6 +128,7 @@ crypto key generate rsa modulus 2048
 ssh 0 0 management
 ssh timeout 60
 ssh version 2
+ssh scopy enable
 username admin password AsAv_AuT0Scale privilege 15
 enable password AsAv_AuT0Scale
 username admin attributes

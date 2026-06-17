@@ -1,0 +1,697 @@
+{
+   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion": "1.0.0.0",
+   "parameters": {
+      "vmName-prefix": {
+         "type": "string",
+         "defaultValue": "asa-vm",
+         "metadata": {
+            "description": "Prefix for ASA VM name - VMs will be <prefix>-a and <prefix>-b."
+         }
+      },
+      "vmImageId": {
+         "type": "string",
+         "defaultValue": "/subscriptions/{subscription-id}/resourceGroups/myresourcegroup1/providers/Microsoft.Compute/images/myImage",
+         "metadata": {
+            "description": "The ID of the image used for deployment. /subscriptions/{subscription-id}/resourceGroups/myresourcegroup1/providers/Microsoft.Compute/images/myImage"
+         }
+      },
+      "adminUsername": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "Username for the Virtual Machine. admin, Administrator among other values are disallowed - see Azure docs"
+         }
+      },
+      "adminPassword": {
+         "type": "securestring",
+         "defaultValue": "",
+         "metadata": {
+            "description": "Password for the Virtual Machine. Passwords must be 12 to 72 chars and have at least 3 of the following: Lowercase, uppercase, numbers, special chars"
+         }
+      },
+      "vmStorageAccount-A": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "A unique storage account name for ASAv-A (boot diags require a storage account). Between 3 and 24 characters. Lowercase letters and numbers only"
+         }
+      },
+      "vmStorageAccount-B": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "A unique storage account name for ASAv-B (boot diags require a storage account). Between 3 and 24 characters. Lowercase letters and numbers only"
+         }
+      },
+      "virtualNetworkResourceGroup": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "Name of the virtual network's Resource Group"
+         }
+      },
+      "virtualNetworkName": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "Name of the virtual network"
+         }
+      },
+      "mgmtSubnetName": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "The management interface will attach to this subnet"
+         }
+      },
+      "mgmtSubnetIp-A": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "ASAv-A's IP on the mgmt interface (example: 192.168.0.10)"
+         }
+      },
+      "mgmtSubnetIp-B": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "ASAv-B's IP on the mgmt interface (example: 192.168.0.11)"
+         }
+      },
+      "data1SubnetName": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "The ASAv data1 interface will attach to this subnet"
+         }
+      },
+      "data1SubnetIP-A": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "ASAv-A's IP on the data1 interface (example: 192.168.1.10)"
+         }
+      },
+      "data1SubnetIP-B": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "ASAv-B's IP on the data1 interface (example: 192.168.1.11)"
+         }
+      },
+      "data2SubnetName": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "The ASAv data2 interface will attach to this subnet"
+         }
+      },
+      "data2SubnetIP-A": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "ASAv-A's IP on the data2 interface (example: 192.168.2.10)"
+         }
+      },
+      "data2SubnetIP-B": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "ASAv-B's IP on the data2 interface (example: 192.168.2.11)"
+         }
+      },
+      "data3SubnetName": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "The ASAv data3 interface will attach to this subnet"
+         }
+      },
+      "data3SubnetIP-A": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "ASAv-A's IP on the data3 interface (example: 192.168.3.10)"
+         }
+      },
+      "data3SubnetIP-B": {
+         "type": "string",
+         "defaultValue": "",
+         "metadata": {
+            "description": "ASAv-B's IP on the data3 interface (example: 192.168.3.11)"
+         }
+      },
+      "vmSize": {
+         "type": "string",
+         "defaultValue": "Standard_DS3_v2",
+         "allowedValues": [
+            "Standard_DS3",
+            "Standard_DS4",
+            "Standard_DS5",
+            "Standard_DS3_v2",
+            "Standard_DS4_v2",
+            "Standard_DS5_v2",
+            "Standard_D8s_v3",
+            "Standard_D16s_v3",
+            "Standard_F4s",
+            "Standard_F8s",
+            "Standard_F16s",
+            "Standard_F4s_v2",
+            "Standard_F8s_v2",
+            "Standard_F16s_v2",
+            "Standard_D8_v4",
+            "Standard_D16_v4",
+            "Standard_D8s_v4",
+            "Standard_D16s_v4",
+            "Standard_D8_v5",
+            "Standard_D16_v5",
+            "Standard_D8s_v5",
+            "Standard_D16s_v5"
+         ],
+         "metadata": {
+            "description": "Size of the ASAv Virtual Machine"
+         }
+      },
+      "publicInboundPorts" : {
+            "type" : "string",
+            "defaultValue": "None",
+            "allowedValues": [
+                "None",
+                "AllowSelectedPorts"
+            ],
+            "metadata" : {
+                "description" : "Whether public inbound ports are allowed or not."
+            }
+        },
+        "selectedInboundPorts" : {
+            "type" : "array",
+            "defaultValue": [
+                "22",
+                "443"
+            ],
+            "metadata" : {
+                "description" : "Selected public inbound ports to be allowed in network security group."
+            }
+        },
+      "location": {
+        "type": "string",
+        "defaultValue": "[resourceGroup().location]",
+        "metadata": {
+          "description": "Location for all resources."
+        }
+      },
+      "baseStorageURI": {
+         "type": "string",
+         "defaultValue": ".blob.core.windows.net",
+         "metadata": {
+            "description": "Base suffix for Azure storage URIs."
+         }
+      },
+        "enableSecureBoot": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Enable Secure Boot for the VM."
+            }
+        }
+   },
+   "variables": {
+      "vmName-A": "[concat(parameters('vmName-prefix'),'-a')]",
+      "vmName-B": "[concat(parameters('vmName-prefix'),'-b')]",
+      "subnet1Ref": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets/', parameters('virtualNetworkName'), parameters('mgmtSubnetName'))]",
+      "subnet2Ref": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets/', parameters('virtualNetworkName'), parameters('data1SubnetName'))]",
+      "subnet3Ref": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets/', parameters('virtualNetworkName'), parameters('data2SubnetName'))]",
+      "subnet4Ref": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets/', parameters('virtualNetworkName'), parameters('data3SubnetName'))]",
+      "vmNic0Name-A": "[concat(variables('vmName-A'),'-nic0')]",
+      "vmNic1Name-A": "[concat(variables('vmName-A'),'-nic1')]",
+      "vmNic2Name-A": "[concat(variables('vmName-A'),'-nic2')]",
+      "vmNic3Name-A": "[concat(variables('vmName-A'),'-nic3')]",
+      "vmNic0Name-B": "[concat(variables('vmName-B'),'-nic0')]",
+      "vmNic1Name-B": "[concat(variables('vmName-B'),'-nic1')]",
+      "vmNic2Name-B": "[concat(variables('vmName-B'),'-nic2')]",
+      "vmNic3Name-B": "[concat(variables('vmName-B'),'-nic3')]",
+      "mgtNsgName": "[concat(parameters('vmName-prefix'),'-SSH-SecurityGroup')]",
+      "availset": "[concat(parameters('vmName-prefix'), '-availabilitySet')]",
+      "pipSku": "Standard",
+      "vmMgmtPublicIPAddressType": "Static",
+      "vmMgmtPublicIPAddressName-A": "[concat(variables('vmName-A'),'nic0-ip')]",
+      "vmMgmtPublicIPAddressDnsName-A": "[variables('vmMgmtPublicIPAddressName-A')]",
+      "vmMgmtPublicIPAddressName-B": "[concat(variables('vmName-B'),'nic0-ip')]",
+      "vmMgmtPublicIPAddressDnsName-B": "[variables('vmMgmtPublicIPAddressName-B')]",
+      "nsgRuleObj" : {
+            "22" : {
+                "name": "SSH-Rule",
+                "properties": {
+                    "description": "Allow SSH",
+                    "protocol": "Tcp",
+                    "sourcePortRange": "*",
+                    "destinationPortRange": "22",
+                    "sourceAddressPrefix": "*",
+                    "destinationAddressPrefix": "*",
+                    "access": "Allow",
+                    "priority": 100,
+                    "direction": "Inbound"
+                }
+            },
+            "443" : {
+                "name": "HTTPS-Rule",
+                "properties": {
+                    "description": "Allow HTTPS",
+                    "protocol": "Tcp",
+                    "sourcePortRange": "*",
+                    "destinationPortRange": "443",
+                    "sourceAddressPrefix": "*",
+                    "destinationAddressPrefix": "*",
+                    "access": "Allow",
+                    "priority": 120,
+                    "direction": "Inbound"
+                }
+            }
+        },
+        "nsgCopyCount": "[if(equals(parameters('publicInboundPorts'),'None'), 0, length(parameters('selectedInboundPorts')))]",
+        "enableSecurityProfile": true,
+        "securityProfileBlock": "[if(variables('enableSecurityProfile'), json(concat('{','\"securityType\": \"TrustedLaunch\",','\"uefiSettings\": {','\"secureBootEnabled\": ', toLower(string(parameters('enableSecureBoot'))), ',','\"vTpmEnabled\": false','}','}')), json('null'))]"
+   },
+   "resources": [
+      {
+         "type": "Microsoft.Storage/storageAccounts",
+         "name": "[concat(parameters('vmStorageAccount-A'))]",
+         "apiVersion": "2023-05-01",
+         "sku": {
+            "name": "Standard_LRS"
+         },
+         "location": "[parameters('location')]",
+         "kind": "Storage",
+         "properties": {}
+      },
+      {
+         "type": "Microsoft.Storage/storageAccounts",
+         "name": "[concat(parameters('vmStorageAccount-B'))]",
+         "apiVersion": "2023-05-01",
+         "sku": {
+            "name": "Standard_LRS"
+         },
+         "location": "[parameters('location')]",
+         "kind": "Storage",
+         "properties": {}
+      },
+      {
+         "apiVersion": "2024-05-01",
+         "type": "Microsoft.Network/publicIPAddresses",
+         "name": "[variables('vmMgmtPublicIPAddressName-A')]",
+         "location": "[parameters('location')]",
+         "sku": {
+            "name": "[variables('pipSku')]"
+         },
+         "properties": {
+            "publicIPAllocationMethod": "[variables('vmMgmtPublicIpAddressType')]",
+            "dnsSettings": {
+               "domainNameLabel": "[variables('vmMgmtPublicIPAddressDnsName-A')]"
+            }
+         }
+      },
+      {
+         "apiVersion": "2024-05-01",
+         "type": "Microsoft.Network/publicIPAddresses",
+         "name": "[variables('vmMgmtPublicIPAddressName-B')]",
+         "location": "[parameters('location')]",
+         "sku": {
+            "name": "[variables('pipSku')]"
+         },
+         "properties": {
+            "publicIPAllocationMethod": "[variables('vmMgmtPublicIpAddressType')]",
+            "dnsSettings": {
+               "domainNameLabel": "[variables('vmMgmtPublicIPAddressDnsName-B')]"
+            }
+         }
+      },
+      {
+         "apiVersion": "2024-05-01",
+         "type": "Microsoft.Network/networkSecurityGroups",
+         "name": "[variables('mgtNsgName')]",
+         "location": "[parameters('location')]",
+         "properties": {
+            "copy": [
+                    {
+                        "name": "securityRules",
+                        "count": "[variables('nsgCopyCount')]",
+                        "input": "[variables('nsgRuleObj')[parameters('selectedInboundPorts')[copyIndex('securityRules')]]]"
+                    }
+                ]
+         }
+      },
+      {
+         "apiVersion": "2024-05-01",
+         "type": "Microsoft.Network/networkInterfaces",
+         "name": "[variables('vmNic0Name-A')]",
+         "location": "[parameters('location')]",
+         "dependsOn": [
+            "[resourceId('Microsoft.Network/networkSecurityGroups',variables('mgtNsgName'))]",
+            "[resourceId('Microsoft.Network/publicIPAddresses', variables('vmMgmtPublicIPAddressName-A'))]"
+         ],
+         "properties": {
+            "ipConfigurations": [
+               {
+                  "name": "ipconfig1",
+                  "properties": {
+                     "privateIPAllocationMethod": "Static",
+                     "privateIPAddress": "[parameters('mgmtSubnetIp-A')]",
+                     "subnet": {
+                        "id": "[variables('subnet1Ref')]"
+                     },
+                     "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses/', variables('vmMgmtPublicIPAddressName-A'))]"
+                     }
+                  }
+               }
+            ],
+            "networkSecurityGroup": {
+               "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('mgtNsgName'))]"
+            },
+            "enableAcceleratedNetworking": false,
+            "enableIPForwarding": true
+         }
+      },
+      {
+         "apiVersion": "2024-05-01",
+         "type": "Microsoft.Network/networkInterfaces",
+         "name": "[variables('vmNic0Name-B')]",
+         "location": "[parameters('location')]",
+         "dependsOn": [
+            "[resourceId('Microsoft.Network/networkSecurityGroups',variables('mgtNsgName'))]",
+            "[resourceId('Microsoft.Network/publicIPAddresses', variables('vmMgmtPublicIPAddressName-B'))]"
+         ],
+         "properties": {
+            "ipConfigurations": [
+               {
+                  "name": "ipconfig1",
+                  "properties": {
+                     "privateIPAllocationMethod": "Static",
+                     "privateIPAddress": "[parameters('mgmtSubnetIp-B')]",
+                     "subnet": {
+                        "id": "[variables('subnet1Ref')]"
+                     },
+                     "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses/', variables('vmMgmtPublicIPAddressName-B'))]"
+                     }
+                  }
+               }
+            ],
+            "networkSecurityGroup": {
+               "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('mgtNsgName'))]"
+            },
+            "enableAcceleratedNetworking": false,
+            "enableIPForwarding": true
+         }
+      },
+      {
+         "apiVersion": "2024-05-01",
+         "type": "Microsoft.Network/networkInterfaces",
+         "name": "[variables('vmNic1Name-A')]",
+         "location": "[parameters('location')]",
+         "properties": {
+            "ipConfigurations": [
+               {
+                  "name": "ipconfig1",
+                  "properties": {
+                     "privateIPAllocationMethod": "Static",
+                     "privateIPAddress": "[parameters('data1SubnetIP-A')]",
+                     "subnet": {
+                        "id": "[variables('subnet2Ref')]"
+                     }
+                  }
+               }
+            ],
+            "enableAcceleratedNetworking": true,
+            "enableIPForwarding": true
+         }
+      },
+      {
+         "apiVersion": "2024-05-01",
+         "type": "Microsoft.Network/networkInterfaces",
+         "name": "[variables('vmNic1Name-B')]",
+         "location": "[parameters('location')]",
+         "properties": {
+            "ipConfigurations": [
+               {
+                  "name": "ipconfig1",
+                  "properties": {
+                     "privateIPAllocationMethod": "Static",
+                     "privateIPAddress": "[parameters('data1SubnetIP-B')]",
+                     "subnet": {
+                        "id": "[variables('subnet2Ref')]"
+                     }
+                  }
+               }
+            ],
+            "enableAcceleratedNetworking": true,
+            "enableIPForwarding": true
+         }
+      },
+      {
+         "apiVersion": "2024-05-01",
+         "type": "Microsoft.Network/networkInterfaces",
+         "name": "[variables('vmNic2Name-A')]",
+         "location": "[parameters('location')]",
+         "properties": {
+            "ipConfigurations": [
+               {
+                  "name": "ipconfig1",
+                  "properties": {
+                     "privateIPAllocationMethod": "Static",
+                     "privateIPAddress": "[parameters('data2SubnetIP-A')]",
+                     "subnet": {
+                        "id": "[variables('subnet3Ref')]"
+                     }
+                  }
+               }
+            ],
+            "enableAcceleratedNetworking": true,
+            "enableIPForwarding": true
+         }
+      },
+      {
+         "apiVersion": "2024-05-01",
+         "type": "Microsoft.Network/networkInterfaces",
+         "name": "[variables('vmNic2Name-B')]",
+         "location": "[parameters('location')]",
+         "properties": {
+            "ipConfigurations": [
+               {
+                  "name": "ipconfig1",
+                  "properties": {
+                     "privateIPAllocationMethod": "Static",
+                     "privateIPAddress": "[parameters('data2SubnetIP-B')]",
+                     "subnet": {
+                        "id": "[variables('subnet3Ref')]"
+                     }
+                  }
+               }
+            ],
+            "enableAcceleratedNetworking": true,
+            "enableIPForwarding": true
+         }
+      },
+      {
+         "apiVersion": "2024-05-01",
+         "type": "Microsoft.Network/networkInterfaces",
+         "name": "[variables('vmNic3Name-A')]",
+         "location": "[parameters('location')]",
+         "properties": {
+            "ipConfigurations": [
+               {
+                  "name": "ipconfig1",
+                  "properties": {
+                     "privateIPAllocationMethod": "Static",
+                     "privateIPAddress": "[parameters('data3SubnetIP-A')]",
+                     "subnet": {
+                        "id": "[variables('subnet4Ref')]"
+                     }
+                  }
+               }
+            ],
+            "enableAcceleratedNetworking": true,
+            "enableIPForwarding": true
+         }
+      },
+      {
+         "apiVersion": "2024-05-01",
+         "type": "Microsoft.Network/networkInterfaces",
+         "name": "[variables('vmNic3Name-B')]",
+         "location": "[parameters('location')]",
+         "properties": {
+            "ipConfigurations": [
+               {
+                  "name": "ipconfig1",
+                  "properties": {
+                     "privateIPAllocationMethod": "Static",
+                     "privateIPAddress": "[parameters('data3SubnetIP-B')]",
+                     "subnet": {
+                        "id": "[variables('subnet4Ref')]"
+                     }
+                  }
+               }
+            ],
+            "enableAcceleratedNetworking": true,
+            "enableIPForwarding": true
+         }
+      },
+      {
+         "name": "[variables('availSet')]",
+         "type": "Microsoft.Compute/availabilitySets",
+         "apiVersion": "2024-07-01",
+         "location": "[parameters('location')]",
+         "sku": {
+            "name": "Aligned"
+         },
+         "properties": {
+            "platformFaultDomainCount": 2,
+            "platformUpdateDomainCount": 5
+         }
+      },
+      {
+         "apiVersion": "2024-07-01",
+         "type": "Microsoft.Compute/virtualMachines",
+         "name": "[variables('vmName-A')]",
+         "location": "[parameters('location')]",
+         "dependsOn": [
+            "[resourceId('Microsoft.Storage/storageAccounts', parameters('vmStorageAccount-A'))]",
+            "[resourceId('Microsoft.Network/networkInterfaces',variables('vmNic0Name-A'))]",
+            "[resourceId('Microsoft.Network/networkInterfaces',variables('vmNic1Name-A'))]",
+            "[resourceId('Microsoft.Network/networkInterfaces',variables('vmNic2Name-A'))]",
+            "[resourceId('Microsoft.Network/networkInterfaces',variables('vmNic3Name-A'))]"
+         ],
+         "properties": {
+            "hardwareProfile": {
+               "vmSize": "[parameters('vmSize')]"
+            },
+            "osProfile": {
+               "computername": "[variables('vmName-A')]",
+               "adminUsername": "[parameters('AdminUsername')]",
+               "adminPassword": "[parameters('AdminPassword')]"
+            },
+            "securityProfile": "[variables('securityProfileBlock')]",
+            "storageProfile": {
+               "imageReference": {
+                  "id": "[parameters('vmImageId')]"
+               },
+               "osDisk": {
+                  "osType": "Linux",
+                  "caching": "ReadWrite",
+                  "createOption": "FromImage"
+               }
+            },
+            "networkProfile": {
+               "networkInterfaces": [
+                  {
+                     "properties": {
+                        "primary": true
+                     },
+                     "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('vmNic0Name-A'))]"
+                  },
+                  {
+                     "properties": {
+                        "primary": false
+                     },
+                     "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('vmNic1Name-A'))]"
+                  },
+                  {
+                     "properties": {
+                        "primary": false
+                     },
+                     "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('vmNic2Name-A'))]"
+                  },
+                  {
+                     "properties": {
+                        "primary": false
+                     },
+                     "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('vmNic3Name-A'))]"
+                  }
+               ]
+            },
+            "diagnosticsProfile": {
+               "bootDiagnostics": {
+                  "enabled": true,
+                  "storageUri": "[uri(concat('http://',parameters('vmStorageAccount-A'),parameters('baseStorageURI')), '')]"
+               }
+            },
+            "availabilitySet": {
+               "id": "[resourceId('Microsoft.Compute/availabilitySets', variables('availSet'))]"
+            }
+         }
+      },
+      {
+         "apiVersion": "2024-07-01",
+         "type": "Microsoft.Compute/virtualMachines",
+         "name": "[variables('vmName-B')]",
+         "location": "[parameters('location')]",
+         "dependsOn": [
+            "[resourceId('Microsoft.Storage/storageAccounts', parameters('vmStorageAccount-B'))]",
+            "[resourceId('Microsoft.Network/networkInterfaces',variables('vmNic0Name-B'))]",
+            "[resourceId('Microsoft.Network/networkInterfaces',variables('vmNic1Name-B'))]",
+            "[resourceId('Microsoft.Network/networkInterfaces',variables('vmNic2Name-B'))]",
+            "[resourceId('Microsoft.Network/networkInterfaces',variables('vmNic3Name-B'))]"
+         ],
+         "properties": {
+            "hardwareProfile": {
+               "vmSize": "[parameters('vmSize')]"
+            },
+            "osProfile": {
+               "computername": "[variables('vmName-B')]",
+               "adminUsername": "[parameters('AdminUsername')]",
+               "adminPassword": "[parameters('AdminPassword')]"
+            },
+            "securityProfile": "[variables('securityProfileBlock')]",
+            "storageProfile": {
+               "imageReference": {
+                  "id": "[parameters('vmImageId')]"
+               },
+               "osDisk": {
+                  "osType": "Linux",
+                  "caching": "ReadWrite",
+                  "createOption": "FromImage"
+               }
+            },
+            "networkProfile": {
+               "networkInterfaces": [
+                  {
+                     "properties": {
+                        "primary": true
+                     },
+                     "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('vmNic0Name-B'))]"
+                  },
+                  {
+                     "properties": {
+                        "primary": false
+                     },
+                     "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('vmNic1Name-B'))]"
+                  },
+                  {
+                     "properties": {
+                        "primary": false
+                     },
+                     "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('vmNic2Name-B'))]"
+                  },
+                  {
+                     "properties": {
+                        "primary": false
+                     },
+                     "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('vmNic3Name-B'))]"
+                  }
+               ]
+            },
+            "diagnosticsProfile": {
+               "bootDiagnostics": {
+                  "enabled": true,
+                  "storageUri": "[uri(concat('http://',parameters('vmStorageAccount-B'),parameters('baseStorageURI')), '')]"
+               }
+            },
+            "availabilitySet": {
+               "id": "[resourceId('Microsoft.Compute/availabilitySets', variables('availSet'))]"
+            }
+         }
+      }
+   ],
+   "outputs": {}
+}

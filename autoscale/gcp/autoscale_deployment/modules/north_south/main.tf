@@ -55,6 +55,16 @@ variable "public_key" {
   }
 }
 
+variable "assign_public_ip_to_mgmt" {
+  description = "Assign public IP to management interface."
+  type        = bool
+}
+
+variable "enable_secure_boot" {
+  description = "Enable Secure Boot for ASAv instances (supported from version 9.24 onwards)."
+  type        = bool
+}
+
 variable "service_account_mail_id" {
   description = "Service account email used by the instances."
   validation {
@@ -94,16 +104,16 @@ variable "max_asa_count" {
   description = "The maximum ASA count allowed."
   type        = number
   validation {
-    condition     = var.max_asa_count > 0
-    error_message = "The max_asa_count must be greater than 0."
+    condition     = var.max_asa_count >= 0
+    error_message = "The max_asa_count must be greater than or equal to 0."
   }
 }
 
-variable "elb_port" {
-  description = "External Load Balancer port."
+variable "elb_health_check_port" {
+  description = "External load balancer health-check port."
   type        = number
   validation {
-    condition     = var.elb_port > 0 && var.elb_port < 65536
+    condition     = var.elb_health_check_port > 0 && var.elb_health_check_port < 65536
     error_message = "Please provide a valid port number (1-65535)."
   }
 }
@@ -183,11 +193,11 @@ variable "ilb_protocol_name" {
   }
 }
 
-variable "ilb_port" {
-  description = "Internal load balancer port."
+variable "ilb_health_check_port" {
+  description = "Internal load balancer health-check port."
   type        = number
   validation {
-    condition     = var.ilb_port > 0 && var.ilb_port < 65536
+    condition     = var.ilb_health_check_port > 0 && var.ilb_health_check_port < 65536
     error_message = "Please provide a valid port number (1-65535)."
   }
 }
@@ -236,10 +246,10 @@ variable "outside_vpc_name" {
   }
 }
 
-variable "outside_vpc_subnet" {
+variable "outside_subnet_name" {
   description = "Subnet name for the outside VPC."
   validation {
-    condition     = length(var.outside_vpc_subnet) > 0
+    condition     = length(var.outside_subnet_name) > 0
     error_message = "Please provide a valid outside VPC subnet ID or name."
   }
 }
@@ -252,10 +262,10 @@ variable "inside_vpc_name" {
   }
 }
 
-variable "inside_vpc_subnet" {
+variable "inside_subnet_name" {
   description = "Subnet name for the inside VPC."
   validation {
-    condition     = length(var.inside_vpc_subnet) > 0
+    condition     = length(var.inside_subnet_name) > 0
     error_message = "Please provide a valid inside VPC subnet ID or name."
   }
 }
@@ -268,10 +278,10 @@ variable "mgmt_vpc_name" {
   }
 }
 
-variable "mgmt_vpc_subnet" {
+variable "mgmt_subnet_name" {
   description = "Subnet name for the management VPC."
   validation {
-    condition     = length(var.mgmt_vpc_subnet) > 0
+    condition     = length(var.mgmt_subnet_name) > 0
     error_message = "Please provide a valid management VPC subnet."
   }
 }
@@ -290,6 +300,15 @@ variable "license_id_token" {
   validation {
     condition     = length(var.license_id_token) > 0
     error_message = "License ID token cannot be empty."
+  }
+}
+
+variable "license_throughput" {
+  description = "License throughput for ASAv. allowed values: 100M, 1G, 2G, 10G, 20G etc."
+  type        = string
+  validation {
+    condition     = length(var.license_throughput) > 0
+    error_message = "Please provide a valid license throughput."
   }
 }
 
@@ -336,11 +355,11 @@ variable "zone" {
 }
 
 data "google_compute_subnetwork" "inside_vpc_subnet" {
-  name = var.inside_vpc_subnet
+  name = var.inside_subnet_name
 }
 
 data "google_compute_subnetwork" "mgmt_vpc_subnet" {
-  name = var.mgmt_vpc_subnet
+  name = var.mgmt_subnet_name
 }
 
 
@@ -365,19 +384,29 @@ resource "google_compute_instance_template" "asav_instance_template" {
   # Three NICs (inside, outside, management)
   network_interface {
     network    = "projects/${var.project_id}/global/networks/${var.outside_vpc_name}"
-    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.outside_vpc_subnet}"
+    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.outside_subnet_name}"
   }
   network_interface {
     network    = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
-    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_vpc_subnet}"
+    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_subnet_name}"
   }
   network_interface {
     network    = "projects/${var.project_id}/global/networks/${var.mgmt_vpc_name}"
-    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.mgmt_vpc_subnet}"
+    subnetwork = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.mgmt_subnet_name}"
+    dynamic "access_config" {
+      for_each = var.assign_public_ip_to_mgmt ? [1] : []
+      content {}
+    }
   }
 
   reservation_affinity {
     type = "ANY_RESERVATION"
+  }
+
+  shielded_instance_config {
+    enable_secure_boot          = var.enable_secure_boot
+    enable_vtpm                 = true
+    enable_integrity_monitoring = true
   }
 
   metadata = {
@@ -412,6 +441,7 @@ resource "google_compute_instance_template" "asav_instance_template" {
           ssh 0.0.0.0 0.0.0.0 management
           ssh version 2
           ssh timeout 60
+          ssh scopy enable
           aaa authentication ssh console LOCAL
           !ssh authentication publickey ${var.public_key}
           username admin privilege 15
@@ -460,8 +490,7 @@ resource "google_compute_instance_template" "asav_instance_template" {
           destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
           license smart
           feature tier standard
-          throughput level 2G
-          debug menu license 25 production
+          throughput level ${var.license_throughput}
           license smart register idtoken ${var.license_id_token} force
     EOT
     ssh-keys       = var.public_key
@@ -530,7 +559,7 @@ resource "google_compute_region_health_check" "asav_hc_elb" {
   name   = "${var.resource_name_prefix}-asav-hc-elb"
   region = var.region
   tcp_health_check {
-    port         = var.elb_port
+    port         = var.elb_health_check_port
     proxy_header = "NONE"
   }
   timeout_sec = var.elb_timeout_sec
@@ -571,7 +600,7 @@ resource "google_compute_region_backend_service" "asav_backend_service_ilb" {
 resource "google_compute_health_check" "asav_hc_ilb" {
   name = "${var.resource_name_prefix}-asav-hc-ilb"
   tcp_health_check {
-    port = var.ilb_port
+    port = var.ilb_health_check_port
   }
   check_interval_sec = var.ilb_check_interval_sec
   timeout_sec        = var.ilb_timeout_sec
@@ -587,25 +616,54 @@ resource "google_compute_forwarding_rule" "asav_fr_ilb" {
   ip_address            = google_compute_address.asav_ilb_ip.address
   backend_service       = google_compute_region_backend_service.asav_backend_service_ilb.id
   network               = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
-  subnetwork            = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_vpc_subnet}"
+  subnetwork            = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_subnet_name}"
 }
 
 resource "google_compute_address" "asav_ilb_ip" {
   name         = "${var.resource_name_prefix}-ilb-ip"
   region       = var.region
   address_type = "INTERNAL"
-  subnetwork   = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_vpc_subnet}"
+  subnetwork   = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_subnet_name}"
 }
-resource "google_compute_router" "nat_router" {
-  name    = "${var.resource_name_prefix}-nat-router"
+resource "google_compute_router" "outside_nat_router" {
+  name    = "${var.resource_name_prefix}-out-nat-router"
   region  = var.region
   network = "projects/${var.project_id}/global/networks/${var.outside_vpc_name}"
 
 }
 
-resource "google_compute_router_nat" "nat" {
-  name                               = "${var.resource_name_prefix}-nat"
-  router                             = google_compute_router.nat_router.name
+resource "google_compute_router_nat" "outside_nat" {
+  name                               = "${var.resource_name_prefix}-out-nat"
+  router                             = google_compute_router.outside_nat_router.name
   nat_ip_allocate_option             = "AUTO_ONLY"
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+}
+
+# Outputs
+output "elb_name" {
+  value = google_compute_forwarding_rule.asav_fr_elb.name
+}
+
+output "ilb_name" {
+  value = google_compute_forwarding_rule.asav_fr_ilb.name
+}
+
+output "elb_ip" {
+  value = google_compute_address.asav_elb_ip.address
+}
+
+output "ilb_ip" {
+  value = google_compute_address.asav_ilb_ip.address
+}
+
+output "outside_nat_router" {
+  value = google_compute_router.outside_nat_router.name
+}
+
+output "outside_nat" {
+  value = google_compute_router_nat.outside_nat.name
+}
+
+output "instance_group_name" {
+  value = google_compute_region_instance_group_manager.asav_instance_group.name
 }

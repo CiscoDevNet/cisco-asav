@@ -209,3 +209,74 @@ resource "google_vpc_access_connector" "connector" {
   min_instances = 2
 }
 
+# VPC Outputs
+output "mgmt_vpc_name" {
+  description = "Name of the management VPC"
+  value       = google_compute_network.mgmt_vpc.name
+}
+
+output "inside_vpc_name" {
+  description = "Name of the inside VPC"
+  value       = google_compute_network.inside_vpc.name
+}
+
+output "outside_vpc_name" {
+  description = "Name of the outside VPC"
+  value       = google_compute_network.outside_vpc.name
+}
+
+# Subnet Outputs
+output "mgmt_subnet_name" {
+  description = "Name of the management subnet"
+  value       = google_compute_subnetwork.mgmt_subnet.name
+}
+
+output "mgmt_vpc_connector_subnet_name" {
+  description = "Name of the management VPC connector subnet"
+  value       = google_compute_subnetwork.mgmt_vpc_connector_subnet.name
+}
+
+output "inside_subnet_name" {
+  description = "Name of the inside subnet"
+  value       = google_compute_subnetwork.inside_subnet.name
+}
+
+output "outside_subnet_name" {
+  description = "Name of the outside subnet"
+  value       = google_compute_subnetwork.outside_subnet.name
+}
+
+# Firewall Rule Outputs
+output "mgmt_firewall_rule_name" {
+  description = "Name of the management firewall rule"
+  value       = google_compute_firewall.mgmt_firewall.name
+}
+
+output "inside_firewall_rule_name" {
+  description = "Name of the inside firewall rule"
+  value       = google_compute_firewall.inside_firewall.name
+}
+
+output "outside_firewall_rule_name" {
+  description = "Name of the outside firewall rule"
+  value       = google_compute_firewall.outside_firewall.name
+}
+
+output "inside_hc_firewall_rule_name" {
+  description = "Name of the health check firewall rule for inside"
+  value       = google_compute_firewall.hc_firewall_inside.name
+}
+
+output "outside_hc_firewall_rule_name" {
+  description = "Name of the health check firewall rule for outside"
+  value       = google_compute_firewall.hc_firewall_outside.name
+}
+
+# VPC Connector Output
+output "vpc_connector_name" {
+  description = "Name of the VPC connector"
+  value       = google_vpc_access_connector.connector.name
+}
+
+
+
