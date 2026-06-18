@@ -435,13 +435,9 @@ Resources:
         - Key: Name
           Value: !Join ['-', [!Ref PodName, !Ref PodNumber, 'asav-mgmt-interface-sg' ] ]
         SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: !Ref VpcCidr
         - IpProtocol: "-1"
           FromPort: 0
-          ToPort: 65535 
+          ToPort: 65535
           CidrIp: !Ref VpcCidr
         SecurityGroupEgress:
         - IpProtocol: "-1"
