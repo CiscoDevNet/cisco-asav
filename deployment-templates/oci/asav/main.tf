@@ -255,6 +255,8 @@ resource "oci_core_vnic_attachment" "test_vnic_attachment_diag" {
 
     #Optional
     display_name = "diagnostic"
+    # Keep ASAv data interfaces first in guest order: Gig0/0=inside, Gig0/1=outside.
+    depends_on = [oci_core_vnic_attachment.test_vnic_attachment_out]
 }
 
 resource "oci_core_vnic_attachment" "test_vnic_attachment_in" {
@@ -272,7 +274,6 @@ resource "oci_core_vnic_attachment" "test_vnic_attachment_in" {
 
     #Optional
     display_name = "inside"
-    depends_on = [oci_core_vnic_attachment.test_vnic_attachment_diag]
 }
 
 resource "oci_core_vnic_attachment" "test_vnic_attachment_out" {
