@@ -11,6 +11,11 @@ variable "image" {
 variable "machine_type" {
   default = "n1-standard-4"
 }
+variable "enable_secure_boot" {
+  description = "Enable Secure Boot for the instance."
+  type        = bool
+  default     = false
+}
 
 variable "mgmt_vpc_name" {}
 variable "mgmt_subnet_name" {}
@@ -23,8 +28,8 @@ variable "day0_config" {}
 # variable "enable_password" {}
 
 provider "google" {
-  project     = var.project_id
-  region      = var.region
+  project = var.project_id
+  region  = var.region
 }
 
 resource "google_compute_instance" "asav_instance" {
@@ -77,6 +82,15 @@ resource "google_compute_instance" "asav_instance" {
     autostop = "false"
   }
 
+  dynamic "shielded_instance_config" {
+    for_each = var.enable_secure_boot ? [1] : []
+    content {
+      enable_secure_boot          = true
+      enable_vtpm                 = true
+      enable_integrity_monitoring = true
+    }
+  }
+
   lifecycle {
     create_before_destroy = true
   }
@@ -86,40 +100,40 @@ resource "google_compute_instance" "asav_instance" {
 # Outputs
 output "asav_ssh_ip" {
   description = "Public IP address of the management interface"
-  value = length(google_compute_instance.asav_instance.network_interface[0].access_config) > 0 ? google_compute_instance.asav_instance.network_interface[0].access_config[0].nat_ip : null
+  value       = length(google_compute_instance.asav_instance.network_interface[0].access_config) > 0 ? google_compute_instance.asav_instance.network_interface[0].access_config[0].nat_ip : null
 }
 
 output "asav_mgmt_ipv6" {
   description = "IPv6 address of the management interface"
-  value = google_compute_instance.asav_instance.network_interface[0].ipv6_access_config[0].external_ipv6
+  value       = google_compute_instance.asav_instance.network_interface[0].ipv6_access_config[0].external_ipv6
 }
 
 output "asav_mgmt_ip" {
   description = "Private IP address of management interface"
-  value = google_compute_instance.asav_instance.network_interface[0].network_ip
+  value       = google_compute_instance.asav_instance.network_interface[0].network_ip
 }
 
 output "asav_inside_ip" {
   description = "Private IP address of inside interface"
-  value = google_compute_instance.asav_instance.network_interface[1].network_ip
+  value       = google_compute_instance.asav_instance.network_interface[1].network_ip
 }
 
 output "asav_inside_ipv6" {
   description = "IPv6 address of inside interface"
-  value = google_compute_instance.asav_instance.network_interface[1].ipv6_access_config[0].external_ipv6
+  value       = google_compute_instance.asav_instance.network_interface[1].ipv6_access_config[0].external_ipv6
 }
 
 output "asav_outside_ip" {
   description = "Private IP address of outside interface"
-  value = google_compute_instance.asav_instance.network_interface[2].network_ip
+  value       = google_compute_instance.asav_instance.network_interface[2].network_ip
 }
 
 output "asav_outside_ipv6" {
   description = "IPv6 address of outside interface"
-  value = google_compute_instance.asav_instance.network_interface[2].ipv6_access_config[0].external_ipv6
+  value       = google_compute_instance.asav_instance.network_interface[2].ipv6_access_config[0].external_ipv6
 }
 
 output "asav_instance_name" {
   description = "Name of the ASAv instance"
-  value = google_compute_instance.asav_instance.name
+  value       = google_compute_instance.asav_instance.name
 }

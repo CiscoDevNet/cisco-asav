@@ -63,8 +63,8 @@ max_asa_count               = 2                                        # Maximum
 # --------------------
 # External Load Balancer Configuration
 # --------------------
-elb_frontend_protocol       = "TCP"                                    # Frontend protocol for the external load balancer, e.g., "TCP"
-elb_backend_protocol        = "TCP"                                    # Backend protocol for the external load balancer, e.g., "TCP"
+elb_frontend_protocol       = "L3_DEFAULT"                             # Frontend protocol for the external load balancer (TCP, UDP, or L3_DEFAULT)
+elb_backend_protocol        = "UNSPECIFIED"                            # Backend protocol for the external load balancer (TCP, UDP, or UNSPECIFIED)
 elb_front_end_ports         = "all"                                    # Frontend ports for the external load balancer, e.g., "[80, 443]" or "all"
 
 # ELB Health Check
@@ -76,8 +76,8 @@ elb_draining_timeout_sec    = 60
 # --------------------
 # Internal Load Balancer Configuration
 # --------------------
-ilb_frontend_protocol       = "TCP"                                    # Protocol for the internal load balancer, e.g., "TCP"
-ilb_backend_protocol        = "TCP"                                    # Name of the internal load balancer protocol, e.g., "TCP"
+ilb_frontend_protocol       = "L3_DEFAULT"                             # Protocol for the internal load balancer (TCP, UDP, or L3_DEFAULT)
+ilb_backend_protocol        = "UNSPECIFIED"                            # Name of the internal load balancer protocol (TCP, UDP, or UNSPECIFIED)
 
 # ILB Health Check
 ilb_health_check_port       = 80                                       # Port for the internal load balancer, e.g., 80

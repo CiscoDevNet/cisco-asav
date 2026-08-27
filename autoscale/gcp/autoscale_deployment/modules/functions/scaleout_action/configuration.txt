@@ -1,0 +1,12 @@
+! Objects and Nat Rules - Traffic
+
+! object network appServer
+! host app_server_ip
+! object network any4
+! subnet 0.0.0.0 0.0.0.0
+
+! nat (inside,outside) source dynamic any4 interface
+! object network appServer
+! nat (inside,outside) static <elb_ip>
+! object network any4
+! nat (outside,inside) dynamic interface
