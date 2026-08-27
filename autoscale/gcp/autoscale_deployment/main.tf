@@ -137,8 +137,11 @@ variable "elb_port_range" {
   description = "Range for the external load balancer ports."
   type        = string
   validation {
-    condition     = can(regex("^\\d+(?:-\\d+)?$", var.elb_port_range))
-    error_message = "Please provide a valid port range (1-65535), e.g., 80-80."
+    condition = (
+      lower(var.elb_port_range) == "all" ||
+      can(regex("^\\d+(?:-\\d+)?$", var.elb_port_range))
+    )
+    error_message = "Provide a valid port range (e.g., 80-80) or use 'all' to expose every port."
   }
 }
 
@@ -150,27 +153,21 @@ variable "elb_port_name" {
   }
 }
 
-variable "elb_protocol" {
-  description = "Protocol for the external LB (e.g., TCP)."
+variable "elb_backend_protocol" {
+  description = "Backend protocol for the external LB (Allowed Values: TCP, UDP, UNSPECIFIED)."
+  type        = string
   validation {
-    condition     = length(var.elb_protocol) > 2
-    error_message = "Please provide a valid LB protocol."
+    condition     = contains(["TCP", "UDP", "UNSPECIFIED"], var.elb_backend_protocol)
+    error_message = "Please provide a valid ELB backend protocol (TCP, UDP, or UNSPECIFIED)."
   }
 }
 
-variable "elb_protocol_name" {
-  description = "Protocol name for the external LB."
+variable "elb_frontend_protocol" {
+  description = "Frontend protocol used by the external LB (Allowed Values: TCP, UDP, L3_DEFAULT)."
+  type        = string
   validation {
-    condition     = can(regex("^[A-Za-z0-9-]+$", var.elb_protocol_name))
-    error_message = "Protocol name can only include letters, numbers, or dashes."
-  }
-}
-
-variable "elb_ip_protocol" {
-  description = "IP protocol used by the external LB."
-  validation {
-    condition     = length(var.elb_ip_protocol) > 2
-    error_message = "Please provide a valid IP protocol name."
+    condition     = contains(["TCP", "UDP", "L3_DEFAULT"], var.elb_frontend_protocol)
+    error_message = "Please provide a valid ELB frontend protocol (TCP, UDP, or L3_DEFAULT)."
   }
 }
 
@@ -192,19 +189,41 @@ variable "elb_unhealthy_threshold" {
   }
 }
 
-variable "ilb_protocol" {
-  description = "Protocol for the internal LB."
+variable "ilb_frontend_protocol" {
+  description = "Frontend protocol used by the internal LB (Allowed Values: TCP, UDP, L3_DEFAULT)."
+  type        = string
   validation {
-    condition     = length(var.ilb_protocol) > 2
-    error_message = "Please provide a valid LB protocol."
+    condition     = contains(["TCP", "UDP", "L3_DEFAULT"], var.ilb_frontend_protocol)
+    error_message = "Please provide a valid ILB frontend protocol (TCP, UDP, or L3_DEFAULT)."
   }
 }
 
-variable "ilb_protocol_name" {
-  description = "Protocol name for the internal LB."
+variable "ilb_backend_protocol" {
+  description = "Backend protocol for the internal LB (Allowed Values: TCP, UDP, UNSPECIFIED)."
+  type        = string
   validation {
-    condition     = can(regex("^[A-Za-z0-9-]+$", var.ilb_protocol_name))
-    error_message = "Protocol name can only include letters, numbers, or dashes."
+    condition     = contains(["TCP", "UDP", "UNSPECIFIED"], var.ilb_backend_protocol)
+    error_message = "Please provide a valid ILB backend protocol (TCP, UDP, or UNSPECIFIED)."
+  }
+}
+
+check "elb_protocol_pair" {
+  assert {
+    condition = (
+      (var.elb_frontend_protocol == "L3_DEFAULT" && var.elb_backend_protocol == "UNSPECIFIED") ||
+      (var.elb_frontend_protocol != "L3_DEFAULT" && var.elb_backend_protocol != "UNSPECIFIED")
+    )
+    error_message = "When ELB frontend protocol is L3_DEFAULT, backend protocol must be UNSPECIFIED, and vice versa."
+  }
+}
+
+check "ilb_protocol_pair" {
+  assert {
+    condition = (
+      (var.ilb_frontend_protocol == "L3_DEFAULT" && var.ilb_backend_protocol == "UNSPECIFIED") ||
+      (var.ilb_frontend_protocol != "L3_DEFAULT" && var.ilb_backend_protocol != "UNSPECIFIED")
+    )
+    error_message = "When ILB frontend protocol is L3_DEFAULT, backend protocol must be UNSPECIFIED, and vice versa."
   }
 }
 
@@ -301,15 +320,6 @@ variable "mgmt_subnet_name" {
   }
 }
 
-
-variable "appserver_ip" {
-  description = "IP address of the application server."
-  validation {
-    condition     = can(regex("^((25[0-5]|2[0-4]\\d|[01]?\\d?\\d)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d?\\d)$", var.appserver_ip))
-    error_message = "Please provide a valid IPv4 address."
-  }
-}
-
 variable "license_id_token" {
   description = "License ID token for ASAv."
   validation {
@@ -397,13 +407,12 @@ module "asav_autoscale" {
   elb_health_check_port           = var.elb_health_check_port
   elb_port_range                  = var.elb_port_range
   elb_port_name                   = var.elb_port_name
-  elb_protocol                    = var.elb_protocol
-  elb_protocol_name               = var.elb_protocol_name
-  elb_ip_protocol                 = var.elb_ip_protocol
+  elb_backend_protocol            = var.elb_backend_protocol
+  elb_frontend_protocol           = var.elb_frontend_protocol
   elb_timeout_sec                 = var.elb_timeout_sec
   elb_unhealthy_threshold         = var.elb_unhealthy_threshold
-  ilb_protocol                    = var.ilb_protocol
-  ilb_protocol_name               = var.ilb_protocol_name
+  ilb_backend_protocol            = var.ilb_backend_protocol
+  ilb_frontend_protocol           = var.ilb_frontend_protocol
   ilb_health_check_port           = var.ilb_health_check_port
   ilb_check_interval_sec          = var.ilb_check_interval_sec
   ilb_timeout_sec                 = var.ilb_timeout_sec
@@ -419,7 +428,6 @@ module "asav_autoscale" {
   outside_firewall_rule_name      = var.outside_firewall_rule_name
   mgmt_firewall_rule_name         = var.mgmt_firewall_rule_name
   health_check_firewall_rule_name = var.health_check_firewall_rule_name
-  appserver_ip                    = var.appserver_ip
   license_id_token                = var.license_id_token
   license_throughput              = var.license_throughput
   zone                            = var.zone
