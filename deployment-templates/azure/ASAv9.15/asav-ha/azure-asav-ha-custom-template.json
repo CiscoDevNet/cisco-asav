@@ -204,7 +204,7 @@
             "name": "Standard_LRS"
          },
          "location": "[resourceGroup().location]",
-         "kind": "Storage",
+         "kind": "StorageV2",
          "properties": {}
       },
       {
@@ -215,7 +215,7 @@
             "name": "Standard_LRS"
          },
          "location": "[resourceGroup().location]",
-         "kind": "Storage",
+         "kind": "StorageV2",
          "properties": {}
       },
       {
