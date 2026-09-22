@@ -135,6 +135,8 @@ This project is licensed under the Apache License, Version 2.0 - see the [LICENS
 Copyright (c) 2022 Cisco Systems Inc and/or its affiliates.
 
 ## Changelog
+- Updated Azure storage-account resources to use the StorageV2 kind.
+
 ### 9.17
 - Changes to support new VM sizes: Standard_D8s_v3, Standard_D16s_v3, Standard_F8s_v2, Standard_F16s_v2
 - API version updates for Azure resources

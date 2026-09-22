@@ -189,6 +189,8 @@ This project is licensed under the Apache License, Version 2.0 - see the [LICENS
 Copyright (c) 2022 Cisco Systems Inc and/or its affiliates.
 
 ## Changelog
+- Updated Azure storage-account resources to use the StorageV2 kind.
+
 ### 9.23
 - Template updates for Azure resources
 
