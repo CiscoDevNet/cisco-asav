@@ -75,10 +75,13 @@ def change_pass(data, context):
      secret_id = f"{resource_name_prefix}-enable-password"
      version_id = "1"
      en_password = bf.secretCode(project_id, secret_id, version_id)
+
+     config_lines = bf.loadCustomConfig()
      
      bf.enableASA(channel, en_password)
      bf.changeSshPwd(channel,new_password)
      bf.changeHostname(channel, instance_suffix)
+     bf.applyCustomConfig(channel, config_lines)
      bf.saveConfig(channel)
      
      bf.closeShell(ssh)

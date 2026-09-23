@@ -201,9 +201,15 @@ resource "google_compute_instance_template" "asav_instance_template" {
                 host ${google_compute_address.ilb_ip.address}
                 object network ELB
                 host ${google_compute_address.elb_ip.address}
+                object service ILB-HC-PORT
+                service tcp destination eq ${var.ilb_health_check_port}
+                object service ELB-HC-PORT
+                service tcp destination eq ${var.elb_health_check_port}
+                object service METADATA-HTTP-PORT
+                service tcp destination eq 80
                 ! Nat Rules
-                nat (inside,outside) source dynamic GCP-HC ILB destination static ILB METADATA
-                nat (outside,outside) source dynamic GCP-HC ELB destination static ELB METADATA
+                nat (inside,outside) source dynamic GCP-HC ILB destination static ILB METADATA service ILB-HC-PORT METADATA-HTTP-PORT
+                nat (outside,outside) source dynamic GCP-HC ELB destination static ELB METADATA service ELB-HC-PORT METADATA-HTTP-PORT
                 !
                 call-home
                 profile License
@@ -233,10 +239,13 @@ resource "google_compute_instance_template" "asav_instance_template" {
       "https://www.googleapis.com/auth/trace.append",
     ]
   }
-  shielded_instance_config {
-    enable_secure_boot          = var.enable_secure_boot
-    enable_vtpm                 = true
-    enable_integrity_monitoring = true
+  dynamic "shielded_instance_config" {
+    for_each = var.enable_secure_boot ? [1] : []
+    content {
+      enable_secure_boot          = true
+      enable_vtpm                 = true
+      enable_integrity_monitoring = true
+    }
   }
   depends_on = [
     google_compute_address.elb_ip,
@@ -278,7 +287,7 @@ resource "google_compute_region_autoscaler" "asav_autoscaler" {
 resource "google_compute_region_backend_service" "asav_elb" {
   name                            = "${var.resource_name_prefix}-asav-elb"
   region                          = var.region
-  port_name                       = "tcp"
+  port_name                       = var.elb_backend_protocol == "UNSPECIFIED" ? null : "tcp"
   protocol                        = var.elb_backend_protocol
   load_balancing_scheme           = "EXTERNAL"
   connection_draining_timeout_sec = var.elb_draining_timeout_sec
@@ -307,7 +316,7 @@ resource "google_compute_region_health_check" "asav_hc_elb" {
 }
 
 resource "google_compute_forwarding_rule" "asav_fr_elb" {
-  count = var.elb_front_end_ports == "all" ? 0 : 1
+  count = var.elb_front_end_ports == "all" || var.elb_frontend_protocol == "L3_DEFAULT" ? 0 : 1
   
   name                  = "${var.resource_name_prefix}-asav-fr-elb"
   region                = var.region
@@ -324,7 +333,7 @@ resource "google_compute_forwarding_rule" "asav_fr_elb" {
   ]
 }
 resource "google_compute_forwarding_rule" "asav_fr_elb1" {
-  count = var.elb_front_end_ports == "all" ? 1 : 0
+  count = var.elb_front_end_ports == "all" || var.elb_frontend_protocol == "L3_DEFAULT" ? 1 : 0
 
   name                  = "${var.resource_name_prefix}-asav-fr-elb"
   region                = var.region
@@ -385,6 +394,7 @@ resource "google_compute_forwarding_rule" "asav_fr_ilb" {
   backend_service       = google_compute_region_backend_service.asav_ilb.self_link
   network               = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
   subnetwork            = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_subnet_name}"
+  ip_protocol           = var.ilb_frontend_protocol
 }
 
 resource "google_compute_address" "ilb_ip" {
