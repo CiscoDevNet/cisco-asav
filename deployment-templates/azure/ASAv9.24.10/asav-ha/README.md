@@ -31,7 +31,7 @@ e.g. asav9-24-1.vhd.bz2<br>
 Refer the ASAv HA documentation for this.<br>
 [Azure ASAv HA configuration](https://www.cisco.com/c/en/us/td/docs/security/asa/asa924/configuration/general/asa-924-general-config/ha-failover-cloud.html)
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FCiscoDevNet%2Fcisco-asav%2Fmaster%2Fdeployment-templates%2Fazure%2FASAv9.24%2Fasav-ha%2Fazure-asav-ha-custom-template.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FCiscoDevNet%2Fcisco-asav%2Fmaster%2Fdeployment-templates%2Fazure%2FASAv9.24.10%2Fasav-ha%2Fazure-asav-ha-custom-template.json)
 
 ## Parameters for the Azure ARM template:
 
