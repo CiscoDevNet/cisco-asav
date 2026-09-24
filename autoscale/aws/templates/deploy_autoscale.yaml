@@ -169,6 +169,62 @@ Parameters:
       - c6in.4xlarge
       - c6in.8xlarge
       - c6in.16xlarge
+      - c6id.large
+      - c6id.xlarge
+      - c6id.2xlarge
+      - c6id.4xlarge
+      - c7i.large
+      - c7i.xlarge
+      - c7i.2xlarge
+      - c7i.4xlarge
+      - c7a.large
+      - c7a.xlarge
+      - c7a.2xlarge
+      - c7a.4xlarge
+      - c7i-flex.large
+      - c7i-flex.xlarge
+      - c7i-flex.2xlarge
+      - c7i-flex.4xlarge
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m6i.large
+      - m6i.xlarge
+      - m6i.2xlarge
+      - m6i.4xlarge
+      - m6in.large
+      - m6in.xlarge
+      - m6in.2xlarge
+      - m6in.4xlarge
+      - m6a.large
+      - m6a.xlarge
+      - m6a.2xlarge
+      - m6a.4xlarge
+      - r6i.large
+      - r6i.xlarge
+      - r6i.2xlarge
+      - r6i.4xlarge
+      - r6id.large
+      - r6id.xlarge
+      - r6id.2xlarge
+      - r6id.4xlarge
+      - m7i.large
+      - m7i.xlarge
+      - m7i.2xlarge
+      - m7i.4xlarge
+      - m7a.large
+      - m7a.xlarge
+      - m7a.2xlarge
+      - m7a.4xlarge
+      - m7i-flex.large
+      - m7i-flex.xlarge
+      - m7i-flex.2xlarge
+      - m7i-flex.4xlarge
+      - r7i.large
+      - r7i.xlarge
+      - r7i.2xlarge
+      - r7i.4xlarge
     Default: c5.xlarge
   ASAvLicenseType:
     Description: >-

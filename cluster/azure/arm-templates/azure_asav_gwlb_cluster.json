@@ -210,7 +210,9 @@
                 "Standard_F16",
                 "Standard_F16s",
                 "Standard_F8s_v2",
-                "Standard_F16s_v2"
+                "Standard_F16s_v2",
+                "Standard_D8s_v6",
+                "Standard_D16s_v6"
             ],
             "metadata": {
                 "description": "Size of the Virtual Machine"

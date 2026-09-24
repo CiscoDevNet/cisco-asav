@@ -93,7 +93,7 @@ e.g. data-subnet3
 e.g. 10.8.3.10
 
 17. **vmSize**: The VM size to use for the ASAv. Standard_DS3_v2 is the default.<br>
-Supported Gen2 sizes for 9.24:<br>
+Supported Gen2 sizes for 9.24.10:<br>
   * Standard_DS3
   * Standard_DS4
   * Standard_DS5
@@ -116,6 +116,8 @@ Supported Gen2 sizes for 9.24:<br>
   * Standard_D16_v5
   * Standard_D8s_v5
   * Standard_D16s_v5
+  * Standard_D8s_v6
+  * Standard_D16s_v6
 
 18. **location**: This shouldn't be changed and should always be set to the below value.<br>
 resourceGroup().location

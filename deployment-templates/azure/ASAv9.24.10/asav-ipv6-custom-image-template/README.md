@@ -141,7 +141,7 @@ e.g. 10.151.4.4
 e.g. ace:cab:deca:4444::6
 
 33. **vmSize**: The VM size to use for the ASAv. Standard_DS3_v2 is the default.<br>
-Supported Gen2 sizes for 9.24:<br>
+Supported Gen2 sizes for 9.24.10:<br>
   * Standard_DS3
   * Standard_DS4
   * Standard_DS5
@@ -164,6 +164,26 @@ Supported Gen2 sizes for 9.24:<br>
   * Standard_D16_v5
   * Standard_D8s_v5
   * Standard_D16s_v5
+  * Standard_D8s_v6
+  * Standard_D16s_v6
+
+Network-optimized VM sizes in public preview (custom-image template only):<br>
+  * Standard_D2ns_v6
+  * Standard_D4ns_v6
+  * Standard_D8ns_v6
+  * Standard_D16ns_v6
+  * Standard_D2nds_v6
+  * Standard_D4nds_v6
+  * Standard_D8nds_v6
+  * Standard_D16nds_v6
+  * Standard_D2nls_v6
+  * Standard_D4nls_v6
+  * Standard_D8nls_v6
+  * Standard_D16nls_v6
+  * Standard_D2nlds_v6
+  * Standard_D4nlds_v6
+  * Standard_D8nlds_v6
+  * Standard_D16nlds_v6
 
 
 
