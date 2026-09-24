@@ -24,7 +24,7 @@ Use the instructions in the quick start guide for ASAv deployment.<br>
 5. Configure the Cisco Adaptive Security Virtual Appliance (ASAv).<br>
 Refer the ASAv documentation for this.<br>
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FCiscoDevNet%2Fcisco-asav%2Fmaster%2Fdeployment-templates%2Fazure%2FASAv9.24%2Fasav-ipv6-mp-image-template%2Fasav-ipv6-mp-image-template.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FCiscoDevNet%2Fcisco-asav%2Fmaster%2Fdeployment-templates%2Fazure%2FASAv9.24.10%2Fasav-ipv6-mp-image-template%2Fasav-ipv6-mp-image-template.json)
 
 ## Parameters for the Azure ARM template:
 
