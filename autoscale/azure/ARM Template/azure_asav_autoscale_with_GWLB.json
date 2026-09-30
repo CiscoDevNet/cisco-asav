@@ -71,7 +71,9 @@
             "Standard_F4",
             "Standard_F4s",
             "Standard_F8",
-            "Standard_F8s"
+            "Standard_F8s",
+            "Standard_D8s_v6",
+            "Standard_D16s_v6"
         ],
         "metadata" : {
             "description" : "Size of the Virtual Machine"
@@ -173,7 +175,6 @@
     "dataSubnetName" : 	  "[concat(parameters('resourceNamePrefix'),'-dataSubnet')]",
     "appInsightsName" : "[concat(parameters('resourceNamePrefix'),'-appinsight')]",
 	  "functionAppName" : "[concat(parameters('resourceNamePrefix'),'-function-app')]",
-	  "appInsightsName" : "[concat(parameters('resourceNamePrefix'),'-appinsight')]",
     "gwlbId" :           "[resourceId('Microsoft.Network/loadBalancers',variables('gwlbName'))]",
     "vnetId":           "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
     "mgmtSubnetId":     "[concat(variables('vnetID'),'/subnets/', variables('mgmtSubnetName'))]",
