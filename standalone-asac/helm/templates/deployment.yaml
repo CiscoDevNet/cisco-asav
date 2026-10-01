@@ -33,7 +33,7 @@ kind: ConfigMap
 metadata:
   name: day0-config-primary
 data:
-  day0-config: |-
+  day0-config: |
 {{- if eq .Values.asac.enable_ha "true" }}
 {{ .Files.Get "day0-config-primary" | indent 4 }}
 {{- else }}
@@ -48,7 +48,7 @@ kind: ConfigMap
 metadata:
   name: day0-config-secondary
 data:
-  day0-config: |-
+  day0-config: |
 {{ .Files.Get "day0-config-secondary" | indent 4 }}
 {{- end }}
 
@@ -483,4 +483,3 @@ lifecycle:
           echo "tap_nlp did not become ready within 300 seconds" >&2
           exit 1
 {{- end }}
-
