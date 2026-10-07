@@ -33,7 +33,7 @@ kind: ConfigMap
 metadata:
   name: day0-config-primary
 data:
-  day0-config: |-
+  day0-config: |
 {{- if eq .Values.asac.enable_ha "true" }}
 {{ .Files.Get "day0-config-primary" | indent 4 }}
 {{- else }}
@@ -48,7 +48,7 @@ kind: ConfigMap
 metadata:
   name: day0-config-secondary
 data:
-  day0-config: |-
+  day0-config: |
 {{ .Files.Get "day0-config-secondary" | indent 4 }}
 {{- end }}
 
@@ -186,6 +186,7 @@ spec:
         image: {{ .Values.asac.repository }}
         stdin: true
         tty: true
+{{ include "asac.tapNlpRouteLifecycle" . | nindent 8 }}
         securityContext:
           capabilities:
                 add: ["SYS_RESOURCE", "SYS_ADMIN", "NET_ADMIN"]
@@ -306,6 +307,7 @@ spec:
         image: {{ .Values.asac.repository }}
         stdin: true
         tty: true
+{{ include "asac.tapNlpRouteLifecycle" . | nindent 8 }}
         securityContext:
           capabilities:
                 add: ["SYS_RESOURCE", "SYS_ADMIN", "NET_ADMIN"]
@@ -458,4 +460,26 @@ spec:
         - name: lina-path
           mountPath: {{ .Values.worker_nodes.persistence.lina.hostPath }}
 {{- end }}
-
+{{- define "asac.tapNlpRouteLifecycle" }}
+lifecycle:
+  postStart:
+    exec:
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          attempts=0
+          while [ "$attempts" -lt 150 ]; do
+            if [ -f /tmp/lina_ready ] && ip link show tap_nlp >/dev/null 2>&1; then
+              # Lina initially installs this policy route through eth0. Replace it
+              # only after tap_nlp is ready so management SSH replies return to Lina.
+              ip -4 route replace table 1 default via 169.254.1.1 dev tap_nlp onlink
+              ip -4 route show table 1 | grep -q '^default via 169\.254\.1\.1 dev tap_nlp'
+              exit 0
+            fi
+            attempts=$((attempts + 1))
+            sleep 2
+          done
+          echo "tap_nlp did not become ready within 300 seconds" >&2
+          exit 1
+{{- end }}
