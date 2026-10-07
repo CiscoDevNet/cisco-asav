@@ -952,6 +952,9 @@
         },
         {
             "type": "Microsoft.Compute/virtualMachineScaleSets",
+            "tags": {
+                "LegacyVMNVA": "true"
+            },
             "apiVersion": "[variables('networkApiVersion')]",
             "name": "[variables('vmssName')]",
             "location": "[resourceGroup().location]",
