@@ -524,6 +524,9 @@
       {
          "apiVersion": "2022-03-01",
          "type": "Microsoft.Compute/virtualMachines",
+         "tags": {
+            "LegacyVMNVA": "true"
+         },
          "name": "[variables('vmName-A')]",
          "location": "[parameters('location')]",
          "dependsOn": [
@@ -594,6 +597,9 @@
       {
          "apiVersion": "2022-03-01",
          "type": "Microsoft.Compute/virtualMachines",
+         "tags": {
+            "LegacyVMNVA": "true"
+         },
          "name": "[variables('vmName-B')]",
          "location": "[parameters('location')]",
          "dependsOn": [

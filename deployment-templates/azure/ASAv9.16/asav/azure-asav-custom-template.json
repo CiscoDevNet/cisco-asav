@@ -343,6 +343,9 @@
       {
          "apiVersion": "2019-12-01",
          "type": "Microsoft.Compute/virtualMachines",
+         "tags": {
+            "LegacyVMNVA": "true"
+         },
          "name": "[parameters('vmName')]",
          "location": "[resourceGroup().location]",
          "dependsOn": [

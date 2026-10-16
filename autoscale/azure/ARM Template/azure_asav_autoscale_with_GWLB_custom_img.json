@@ -63,7 +63,25 @@
             "Standard_F4",
             "Standard_F4s",
             "Standard_F8",
-            "Standard_F8s"
+            "Standard_F8s",
+            "Standard_D8s_v6",
+            "Standard_D16s_v6",
+            "Standard_D2ns_v6",
+            "Standard_D4ns_v6",
+            "Standard_D8ns_v6",
+            "Standard_D16ns_v6",
+            "Standard_D2nds_v6",
+            "Standard_D4nds_v6",
+            "Standard_D8nds_v6",
+            "Standard_D16nds_v6",
+            "Standard_D2nls_v6",
+            "Standard_D4nls_v6",
+            "Standard_D8nls_v6",
+            "Standard_D16nls_v6",
+            "Standard_D2nlds_v6",
+            "Standard_D4nlds_v6",
+            "Standard_D8nlds_v6",
+            "Standard_D16nlds_v6"
         ],
         "metadata" : {
             "description" : "Size of the Virtual Machine"
@@ -165,7 +183,6 @@
     "dataSubnetName" : 	  "[concat(parameters('resourceNamePrefix'),'-dataSubnet')]",
     "appInsightsName" : "[concat(parameters('resourceNamePrefix'),'-appinsight')]",
 	  "functionAppName" : "[concat(parameters('resourceNamePrefix'),'-function-app')]",
-	  "appInsightsName" : "[concat(parameters('resourceNamePrefix'),'-appinsight')]",
     "gwlbId" :           "[resourceId('Microsoft.Network/loadBalancers',variables('gwlbName'))]",
     "vnetId":           "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
     "mgmtSubnetId":     "[concat(variables('vnetID'),'/subnets/', variables('mgmtSubnetName'))]",
@@ -573,6 +590,9 @@
       },
       {
         "type": "Microsoft.Compute/virtualMachineScaleSets",
+        "tags": {
+          "LegacyVMNVA": "true"
+        },
         "name": "[variables('vmssName')]",
         "location": "[resourceGroup().location]",
         "apiVersion": "2019-03-01",
