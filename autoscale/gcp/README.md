@@ -6,6 +6,7 @@
 * Create required Firewall Rules and also a Cloud NAT for outside VPC for the Inside application with private ip to connect to the Internet.
 * Create a VPC-Connector so that the Cloud Function can login to the ASAv
 * Zip the scaleout_action and scalein_function and store them in a Cloud Storage Bucket.
+  * (Optional) Edit `autoscale_deployment/modules/functions/scaleout_action/configuration.txt` to include additional CLI commands you want applied to every ASAv that scales out. Lines starting with `!` or blank lines are ignored.
 * Create Secret-IDs in Secret Manager with "asav-private-key", "asav-en-password" and "asav-new-password"
 * Run pre_deployment.yaml to create all the Google Functions Related Resources.
 	* gcloud deployment-manager deployments create pre-deployement --config pre_deployment.yaml

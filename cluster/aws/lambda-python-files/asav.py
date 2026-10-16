@@ -298,35 +298,34 @@ class ASAvInstance(CiscoEc2Instance):
 
     def get_asav_version(self):
         """
-        Purpose:    To get ASAv version
+        Purpose:    To get ASAv version as a [major, minor, patch, build] list.
+                    Major versions > 9 (e.g. 99, 89) are normalised to 9.
         Parameters:
-        Returns:    Either Version or N/A
+        Returns:    [major, minor, patch, build] list of ints, or None on error
         Raises:
         """
         try:
             command = "show version | grep Software Version " + "\n"
             status, output, error = self.run_asav_command(command)
-            output_json = {
-                "command": command,
-                "status": status,
-                "output": output,
-                "error": error
-            }
             match = re.search(r'Version\s+([\d.()]+)', output)
             if match:
                 version_str = match.group(1)
-                parts = version_str.split('.')
-                if len(parts) >= 2:
-                    major = parts[0][0] if len(parts[0]) > 0 else '0'
-                    minor = parts[1]
-                    minor_first = minor[0] if len(minor) > 0 else '0'
-                    minor_second = minor[1] if len(minor) > 1 else '0'
-                    version_output = major + minor_first + minor_second
-                    return version_output
-                else:
-                    logger.error("Invalid version format")
+                # Strip parentheses used in some build numbers e.g. 9.20(4)27
+                version_str = version_str.replace('(', '.').replace(')', '.')
+                parts = [p for p in version_str.split('.') if p != '']
+                major = int(parts[0]) if len(parts) > 0 else 0
+                minor = int(parts[1]) if len(parts) > 1 else 0
+                patch = int(parts[2]) if len(parts) > 2 else 0
+                build = int(parts[3]) if len(parts) > 3 else 0
+                # Normalise non-standard major versions (99, 89, etc.) to 9
+                if major != 9:
+                    logger.info("Major version {} normalised to 9".format(major))
+                    major = 9
+                logger.info("Parsed ASAv version: {}.{}.{}.{}".format(major, minor, patch, build))
+                return [major, minor, patch, build]
             else:
-                logger.error("Version not found")
+                logger.error("Version not found in output")
+                return None
         except IndexError as e:
             logger.debug("Error occurred: {}".format(repr(e)))
             logger.error("Unable to get ASAv version")
@@ -334,6 +333,29 @@ class ASAvInstance(CiscoEc2Instance):
         except Exception as e:
             logger.error("Error occurred: {}".format(repr(e)))
             return None
+
+    def _determine_vni_prefix(self, version):
+        """
+        Purpose:    Determine VNI IP prefix based on granular version thresholds
+        Parameters: version - List [major, minor, patch, build]
+        Returns:    '169.254.200' (new) or '1.1.1' (legacy)
+        Raises:
+        """
+        major, minor, patch, build = version
+
+        # Minimum versions that use the new 169.254.200 VNI prefix
+        thresholds = {
+            (9, 20): (9, 20, 4, 10),
+            (9, 22): (9, 22, 2, 14),
+            (9, 23): (9, 23, 1, 19),
+            (9, 24): (9, 24, 1, 0),
+        }
+
+        key = (major, minor)
+        if key in thresholds:
+            return '169.254.200' if (major, minor, patch, build) >= thresholds[key] else '1.1.1'
+        # Minor versions not in thresholds: < 9.20 → legacy; >= 9.25 → new
+        return '169.254.200' if minor >= 25 else '1.1.1'
 
      # function to set password(admin) from prev_password to new_password
     def set_asa_password(self):
@@ -628,9 +650,14 @@ class ASAvInstance(CiscoEc2Instance):
             * number_of_azs - total number of azs
         Returns:    SUCCESS, None
         '''
-        version = self. get_asav_version()
+        version = self.get_asav_version()
         logger.info("ASAv version is {}".format(version))
-        if int(version) > 923:
+        if version is None:
+            logger.error("Unable to determine ASAv version")
+            return None
+        vni_prefix = self._determine_vni_prefix(version)
+        logger.info("Using VNI prefix: {}".format(vni_prefix))
+        if vni_prefix == '169.254.200':
             if number_of_azs == '1':
                 local_unit = "local-unit {}-{}".format(octet, az_in_char)
                 cls_int = "cluster-interface vni1 ip 169.254.200.{} 255.255.255.224".format(192+(int(octet)%32))

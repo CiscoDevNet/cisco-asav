@@ -117,3 +117,40 @@ def secretCode(project_id, secret_id, version_id):
      name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
      response = client.access_secret_version(request={"name": name})
      return response.payload.data.decode("UTF-8")
+
+
+def loadCustomConfig(config_filename='configuration.txt'):
+     """Read configuration.txt in this directory and return commands to apply."""
+     config_lines = []
+     file_path = os.path.join(os.path.dirname(__file__), config_filename)
+
+     try:
+          with open(file_path, 'r') as config_file:
+               for line in config_file:
+                    stripped = line.strip()
+                    if stripped and not stripped.startswith('!'):
+                         config_lines.append(stripped)
+          if config_lines:
+               print(f"INFO: Loaded {len(config_lines)} custom configuration commands")
+          else:
+               print("INFO: configuration.txt is empty, skipping custom configuration")
+     except FileNotFoundError:
+          print("INFO: configuration.txt not provided, skipping custom configuration")
+     except Exception as exc:
+          print(f"WARN: Failed to read configuration.txt, skipping custom configuration: {exc}")
+
+     return config_lines
+
+
+def applyCustomConfig(channel, config_lines):
+     """Apply custom configuration commands on the ASAv if provided."""
+     if not config_lines:
+          return
+
+     print("INFO: Applying custom configuration on ASAv")
+     for cmd in config_lines:
+          try:
+               execCommand(channel, cmd)
+          except Exception as exc:
+               print(f"ERROR: Failed executing custom config command '{cmd}': {exc}")
+               raise

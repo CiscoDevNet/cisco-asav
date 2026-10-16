@@ -23,17 +23,16 @@ zone                   = "b" # Deployment zone (comma separated alphabets, 3 at 
 
 # External Load Balancer Configuration
 elb_health_check_port   = 80
-elb_port_range          = "80-80"
+elb_port_range          = "all" # Provide a valid port range (e.g., 80-80) or use "all" to expose every port
 elb_port_name           = "tcp"
-elb_protocol            = "TCP"
-elb_protocol_name       = "TCP"
-elb_ip_protocol         = "TCP"
+elb_backend_protocol    = "UNSPECIFIED"
+elb_frontend_protocol   = "L3_DEFAULT"
 elb_timeout_sec         = 5
 elb_unhealthy_threshold = 2
 
 # Internal Load Balancer Configuration
-ilb_protocol             = "TCP"
-ilb_protocol_name        = "TCP"
+ilb_frontend_protocol    = "L3_DEFAULT"
+ilb_backend_protocol     = "UNSPECIFIED"
 ilb_health_check_port    = 80
 ilb_check_interval_sec   = 10
 ilb_timeout_sec          = 5
@@ -47,9 +46,6 @@ inside_vpc_name    = "<resource_name_prefix>-inside-vpc"    # e.g., "random-terr
 inside_subnet_name  = "<resource_name_prefix>-inside-subnet"  # e.g., "random-terraform-asavautoscale-inside-subnet"
 mgmt_vpc_name      = "<resource_name_prefix>-mgmt-vpc"      # e.g., "random-terraform-asavautoscale-mgmt-vpc"
 mgmt_subnet_name    = "<resource_name_prefix>-mgmt-subnet"    # e.g., "random-terraform-asavautoscale-mgmt-subnet"
-
-# Target Configuration
-appserver_ip = "appserver-ip" # e.g., "10.114.1.1"
 
 # Firewall Rules
 inside_firewall_rule_name       = "allow-asa-i"  # e.g., "allow-asa-i"

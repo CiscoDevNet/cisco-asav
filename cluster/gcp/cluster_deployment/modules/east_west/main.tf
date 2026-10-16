@@ -192,9 +192,13 @@ resource "google_compute_instance_template" "asav_instance_template" {
                 host ${google_compute_address.ilb_ip_inside.address}
                 object network ILB-OUTSIDE
                 host ${google_compute_address.ilb_ip_outside.address}
+                object service ILB-HC-PORT
+                service tcp destination eq ${var.ilb_health_check_port}
+                object service METADATA-HTTP-PORT
+                service tcp destination eq 80
                 ! Nat Rules
-                nat (inside,outside) source dynamic GCP-HC ILB-INSIDE destination static ILB-INSIDE METADATA
-                nat (outside,outside) source dynamic GCP-HC ILB-OUTSIDE destination static ILB-OUTSIDE METADATA
+                nat (inside,outside) source dynamic GCP-HC ILB-INSIDE destination static ILB-INSIDE METADATA service ILB-HC-PORT METADATA-HTTP-PORT
+                nat (outside,outside) source dynamic GCP-HC ILB-OUTSIDE destination static ILB-OUTSIDE METADATA service ILB-HC-PORT METADATA-HTTP-PORT
                 !
                 call-home
                 profile License
@@ -224,10 +228,13 @@ resource "google_compute_instance_template" "asav_instance_template" {
       "https://www.googleapis.com/auth/trace.append",
     ]
   }
-  shielded_instance_config {
-    enable_secure_boot          = var.enable_secure_boot
-    enable_vtpm                 = true
-    enable_integrity_monitoring = true
+  dynamic "shielded_instance_config" {
+    for_each = var.enable_secure_boot ? [1] : []
+    content {
+      enable_secure_boot          = true
+      enable_vtpm                 = true
+      enable_integrity_monitoring = true
+    }
   }
   depends_on = [
     google_compute_address.ilb_ip_inside,
@@ -303,7 +310,7 @@ resource "google_compute_forwarding_rule" "asav_fr_ilb_inside" {
   backend_service       = google_compute_region_backend_service.asav_ilb_inside.self_link
   network               = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
   subnetwork            = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_subnet_name}"
-  ip_protocol           = contains(["TCP", "UDP"], var.ilb_backend_protocol) ? var.ilb_backend_protocol : var.ilb_frontend_protocol
+  ip_protocol           = var.ilb_frontend_protocol
 }
 
 resource "google_compute_address" "ilb_ip_inside" {
@@ -351,7 +358,7 @@ resource "google_compute_forwarding_rule" "asav_fr_ilb_outside" {
   backend_service       = google_compute_region_backend_service.asav_ilb_outside.self_link
   network               = "projects/${var.project_id}/global/networks/${var.outside_vpc_name}"
   subnetwork            = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.outside_subnet_name}"
-  ip_protocol           = contains(["TCP", "UDP"], var.ilb_backend_protocol) ? var.ilb_backend_protocol : var.ilb_frontend_protocol
+  ip_protocol           = var.ilb_frontend_protocol
 }
 
 resource "google_compute_address" "ilb_ip_outside" {

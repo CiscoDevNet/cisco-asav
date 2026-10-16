@@ -119,11 +119,14 @@ variable "elb_health_check_port" {
 }
 
 variable "elb_port_range" {
-  description = "Range for the external load balancer ports."
+  description = "Range for the external load balancer ports. Provide a valid port range (e.g., 80-80) or use 'all' to expose every port. "
   type        = string
   validation {
-    condition     = can(regex("^\\d+(?:-\\d+)?$", var.elb_port_range))
-    error_message = "Please provide a valid port range (1-65535), e.g., 80-80."
+    condition = (
+      lower(var.elb_port_range) == "all" ||
+      can(regex("^\\d+(?:-\\d+)?$", var.elb_port_range))
+    )
+    error_message = "Provide a valid port range (e.g., 80-80) or use 'all' to expose every port."
   }
 }
 
@@ -135,27 +138,19 @@ variable "elb_port_name" {
   }
 }
 
-variable "elb_protocol" {
-  description = "Protocol for the external LB (e.g., TCP)."
+variable "elb_backend_protocol" {
+  description = "Backend protocol for the external LB (Allowed Values: TCP, UDP, UNSPECIFIED)."
   validation {
-    condition     = length(var.elb_protocol) > 2
-    error_message = "Please provide a valid LB protocol."
+    condition     = contains(["TCP", "UDP", "UNSPECIFIED"], var.elb_backend_protocol)
+    error_message = "Please provide a valid ELB backend protocol (TCP, UDP, or UNSPECIFIED)."
   }
 }
 
-variable "elb_protocol_name" {
-  description = "Protocol name for the external LB."
+variable "elb_frontend_protocol" {
+  description = "Frontend protocol used by the external LB (Allowed Values: TCP, UDP, L3_DEFAULT)."
   validation {
-    condition     = can(regex("^[A-Za-z0-9-]+$", var.elb_protocol_name))
-    error_message = "Protocol name can only include letters, numbers, or dashes."
-  }
-}
-
-variable "elb_ip_protocol" {
-  description = "IP protocol used by the external LB."
-  validation {
-    condition     = length(var.elb_ip_protocol) > 2
-    error_message = "Please provide a valid IP protocol name."
+    condition     = contains(["TCP", "UDP", "L3_DEFAULT"], var.elb_frontend_protocol)
+    error_message = "Please provide a valid ELB frontend protocol (TCP, UDP, or L3_DEFAULT)."
   }
 }
 
@@ -177,19 +172,39 @@ variable "elb_unhealthy_threshold" {
   }
 }
 
-variable "ilb_protocol" {
-  description = "Protocol for the internal LB."
+variable "ilb_backend_protocol" {
+  description = "Backend protocol for the internal LB (Allowed Values: TCP, UDP, UNSPECIFIED)."
   validation {
-    condition     = length(var.ilb_protocol) > 2
-    error_message = "Please provide a valid LB protocol."
+    condition     = contains(["TCP", "UDP", "UNSPECIFIED"], var.ilb_backend_protocol)
+    error_message = "Please provide a valid ILB backend protocol (TCP, UDP, or UNSPECIFIED)."
   }
 }
 
-variable "ilb_protocol_name" {
-  description = "Protocol name for the internal LB."
+check "elb_protocol_pair" {
+  assert {
+    condition = (
+      (var.elb_frontend_protocol == "L3_DEFAULT" && var.elb_backend_protocol == "UNSPECIFIED") ||
+      (var.elb_frontend_protocol != "L3_DEFAULT" && var.elb_backend_protocol != "UNSPECIFIED")
+    )
+    error_message = "When ELB frontend protocol is L3_DEFAULT, backend protocol must be UNSPECIFIED, and vice versa."
+  }
+}
+
+check "ilb_protocol_pair" {
+  assert {
+    condition = (
+      (var.ilb_frontend_protocol == "L3_DEFAULT" && var.ilb_backend_protocol == "UNSPECIFIED") ||
+      (var.ilb_frontend_protocol != "L3_DEFAULT" && var.ilb_backend_protocol != "UNSPECIFIED")
+    )
+    error_message = "When ILB frontend protocol is L3_DEFAULT, backend protocol must be UNSPECIFIED, and vice versa."
+  }
+}
+
+variable "ilb_frontend_protocol" {
+  description = "Frontend protocol used by the internal LB (Allowed Values: TCP, UDP, L3_DEFAULT)."
   validation {
-    condition     = can(regex("^[A-Za-z0-9-]+$", var.ilb_protocol_name))
-    error_message = "Protocol name can only include letters, numbers, or dashes."
+    condition     = contains(["TCP", "UDP", "L3_DEFAULT"], var.ilb_frontend_protocol)
+    error_message = "Please provide a valid ILB frontend protocol (TCP, UDP, or L3_DEFAULT)."
   }
 }
 
@@ -283,15 +298,6 @@ variable "mgmt_subnet_name" {
   validation {
     condition     = length(var.mgmt_subnet_name) > 0
     error_message = "Please provide a valid management VPC subnet."
-  }
-}
-
-
-variable "appserver_ip" {
-  description = "IP address of the application server."
-  validation {
-    condition     = can(regex("^((25[0-5]|2[0-4]\\d|[01]?\\d?\\d)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d?\\d)$", var.appserver_ip))
-    error_message = "Please provide a valid IPv4 address."
   }
 }
 
@@ -403,10 +409,13 @@ resource "google_compute_instance_template" "asav_instance_template" {
     type = "ANY_RESERVATION"
   }
 
-  shielded_instance_config {
-    enable_secure_boot          = var.enable_secure_boot
-    enable_vtpm                 = true
-    enable_integrity_monitoring = true
+  dynamic "shielded_instance_config" {
+    for_each = var.enable_secure_boot ? [1] : []
+    content {
+      enable_secure_boot          = true
+      enable_vtpm                 = true
+      enable_integrity_monitoring = true
+    }
   }
 
   metadata = {
@@ -468,19 +477,15 @@ resource "google_compute_instance_template" "asav_instance_template" {
           host ${google_compute_address.asav_ilb_ip.address}
           object network ELB-NORTH
           host ${google_compute_address.asav_elb_ip.address}
-          object network appServer
-          host ${var.appserver_ip}
-          object network any4
-          subnet 0.0.0.0 0.0.0.0
-          ! Nat Rules
-          nat (inside,outside) source dynamic GCP-HC ILB-SOUTH destination static ILB-SOUTH METADATA
-          nat (outside,outside) source dynamic GCP-HC ELB-NORTH destination static ELB-NORTH METADATA
-          nat (inside,outside) source dynamic any4 interface
-          !
-          object network appServer
-          nat (inside,outside) static ${google_compute_address.asav_elb_ip.address}
-          ! object network any4
-          ! nat (outside,inside) dynamic interface
+          object service ILB-HC-PORT
+          service tcp destination eq ${var.ilb_health_check_port}
+          object service ELB-HC-PORT
+          service tcp destination eq ${var.elb_health_check_port}
+          object service METADATA-HTTP-PORT
+          service tcp destination eq 80
+          ! Nat Rules - Health Checks
+          nat (inside,outside) source dynamic GCP-HC ILB-SOUTH destination static ILB-SOUTH METADATA service ILB-HC-PORT METADATA-HTTP-PORT
+          nat (outside,outside) source dynamic GCP-HC ELB-NORTH destination static ELB-NORTH METADATA service ELB-HC-PORT METADATA-HTTP-PORT
           ! Route Add
           route inside 0.0.0.0 0.0.0.0 ${data.google_compute_subnetwork.inside_vpc_subnet.gateway_address} 2
           route management 0.0.0.0 0.0.0.0 ${data.google_compute_subnetwork.mgmt_vpc_subnet.gateway_address} 3
@@ -545,8 +550,8 @@ resource "google_compute_region_autoscaler" "asav_autoscaler" {
 resource "google_compute_region_backend_service" "asav_backend_service_elb" {
   name                  = "${var.resource_name_prefix}-asav-backend-service-elb"
   region                = var.region
-  port_name             = var.elb_port_name
-  protocol              = var.elb_protocol
+  port_name             = var.elb_backend_protocol == "UNSPECIFIED" ? null : var.elb_port_name
+  protocol              = var.elb_backend_protocol
   load_balancing_scheme = "EXTERNAL"
   backend {
     group          = google_compute_region_instance_group_manager.asav_instance_group.instance_group
@@ -563,16 +568,29 @@ resource "google_compute_region_health_check" "asav_hc_elb" {
     proxy_header = "NONE"
   }
   timeout_sec = var.elb_timeout_sec
-  # type                = var.elb_protocol_name
   unhealthy_threshold = var.elb_unhealthy_threshold
 }
 
 resource "google_compute_forwarding_rule" "asav_fr_elb" {
+  count = lower(var.elb_port_range) == "all" || var.elb_frontend_protocol == "L3_DEFAULT" ? 0 : 1
+
   name                  = "${var.resource_name_prefix}-asav-fr-elb"
   region                = var.region
   load_balancing_scheme = "EXTERNAL"
-  ip_protocol           = var.elb_ip_protocol
+  ip_protocol           = var.elb_frontend_protocol
   port_range            = var.elb_port_range
+  backend_service       = google_compute_region_backend_service.asav_backend_service_elb.id
+  ip_address            = google_compute_address.asav_elb_ip.address
+}
+
+resource "google_compute_forwarding_rule" "asav_fr_elb_all" {
+  count = lower(var.elb_port_range) == "all" || var.elb_frontend_protocol == "L3_DEFAULT" ? 1 : 0
+
+  name                  = "${var.resource_name_prefix}-asav-fr-elb"
+  region                = var.region
+  load_balancing_scheme = "EXTERNAL"
+  ip_protocol           = var.elb_frontend_protocol
+  all_ports             = true
   backend_service       = google_compute_region_backend_service.asav_backend_service_elb.id
   ip_address            = google_compute_address.asav_elb_ip.address
 }
@@ -586,7 +604,7 @@ resource "google_compute_address" "asav_elb_ip" {
 resource "google_compute_region_backend_service" "asav_backend_service_ilb" {
   name                  = "${var.resource_name_prefix}-asav-backend-service-ilb"
   region                = var.region
-  protocol              = var.ilb_protocol
+  protocol              = var.ilb_backend_protocol
   load_balancing_scheme = "INTERNAL"
   backend {
     group          = google_compute_region_instance_group_manager.asav_instance_group.instance_group
@@ -604,7 +622,6 @@ resource "google_compute_health_check" "asav_hc_ilb" {
   }
   check_interval_sec = var.ilb_check_interval_sec
   timeout_sec        = var.ilb_timeout_sec
-  # type                 = var.ilb_protocol_name
   unhealthy_threshold = var.ilb_unhealthy_threshold
 }
 
@@ -617,6 +634,7 @@ resource "google_compute_forwarding_rule" "asav_fr_ilb" {
   backend_service       = google_compute_region_backend_service.asav_backend_service_ilb.id
   network               = "projects/${var.project_id}/global/networks/${var.inside_vpc_name}"
   subnetwork            = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.inside_subnet_name}"
+  ip_protocol           = var.ilb_frontend_protocol
 }
 
 resource "google_compute_address" "asav_ilb_ip" {
@@ -641,7 +659,10 @@ resource "google_compute_router_nat" "outside_nat" {
 
 # Outputs
 output "elb_name" {
-  value = google_compute_forwarding_rule.asav_fr_elb.name
+  value = one(concat(
+    google_compute_forwarding_rule.asav_fr_elb[*].name,
+    google_compute_forwarding_rule.asav_fr_elb_all[*].name
+  ))
 }
 
 output "ilb_name" {

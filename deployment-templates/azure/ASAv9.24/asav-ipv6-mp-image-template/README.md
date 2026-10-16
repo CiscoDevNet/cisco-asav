@@ -189,6 +189,8 @@ This project is licensed under the Apache License, Version 2.0 - see the [LICENS
 Copyright (c) 2026 Cisco Systems Inc and/or its affiliates.
 
 ## Changelog
+- Updated Azure storage-account resources to use the StorageV2 kind.
+
 ### 9.24
 - Added Trusted Launch support with Secure Boot option (enableSecureBoot parameter)
 - Changes to support new GEN2 VM sizes
