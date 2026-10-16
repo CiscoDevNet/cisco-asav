@@ -255,10 +255,10 @@ variable "health_check_port" {
       }
 }
 variable "instance_shape" {
-  description = "The shape of the instance to be created. The shape determines the number of CPUs, amount of memory, and other resources allocated to the instance. Supported shapes for ASAv are - 'VM.DenseIO2.8', 'VM.StandardB1.4', 'VM.StandardB1.8', 'VM.Standard1.4', 'VM.Standard1.8', 'VM.Standard2.4', 'VM.Standard2.8', 'VM.Standard3.Flex', 'VM.Optimized3.Flex', 'VM.Standard.E4.Flex'"
+  description = "The shape of the instance to be created. The shape determines the number of CPUs, amount of memory, and other resources allocated to the instance. Supported shapes for ASAv are - 'VM.DenseIO2.8', 'VM.StandardB1.4', 'VM.StandardB1.8', 'VM.Standard1.4', 'VM.Standard1.8', 'VM.Standard2.4', 'VM.Standard2.8', 'VM.Standard3.Flex', 'VM.Optimized3.Flex', 'VM.Standard.E4.Flex', 'VM.Standard.E5.Flex', 'VM.Standard.E6.Flex'"
   validation {
         condition = (
-          contains(["VM.DenseIO2.8", "VM.StandardB1.4", "VM.StandardB1.8", "VM.Standard1.4", "VM.Standard1.8", "VM.Standard2.4", "VM.Standard2.8", "VM.Standard3.Flex", "VM.Optimized3.Flex", "VM.Standard.E4.Flex"], var.instance_shape)
+          contains(["VM.DenseIO2.8", "VM.StandardB1.4", "VM.StandardB1.8", "VM.Standard1.4", "VM.Standard1.8", "VM.Standard2.4", "VM.Standard2.8", "VM.Standard3.Flex", "VM.Optimized3.Flex", "VM.Standard.E4.Flex", "VM.Standard.E5.Flex", "VM.Standard.E6.Flex"], var.instance_shape)
         )
         error_message = "Please provide a valid instance shape."
       }
