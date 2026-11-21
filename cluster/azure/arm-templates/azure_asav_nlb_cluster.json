@@ -744,6 +744,10 @@
                             "value": "YES"
                         },
                         {
+                            "name": "MONITOR_CLUSTER",
+                            "value": "YES"
+                        },
+                        {
                             "name": "OUTSIDE_NETWORK_GATEWAY",
                             "value": "[parameters('outsideNetworkGatewayIp')]"
                         },
