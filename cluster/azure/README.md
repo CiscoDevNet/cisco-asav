@@ -26,3 +26,19 @@ Step 4 : Create a Virtual Network with 4 subnets: Management, Data, CCL and Func
 
 Step 5 : Deploy the Template azure_asav_gwlb_cluster.json using the updated parameters. Please refer [Deployment/Configuration Guide](./cluster-azure-public.pdf) for detailed steps.
 
+## Cluster monitoring
+
+The NLB and GWLB templates, for both marketplace and custom images, set
+`MONITOR_CLUSTER=YES` in the Function App settings. On each five-minute Logic App
+run that requires no scaling, `ConfigureASAv` checks live SSH access and cluster
+status on all nodes and re-enables clustering when needed.
+
+A request containing `asaPublicIp` validates and configures only the specified
+VM, even if its IP appears in the `asavdetails` queue. Azure can reuse public IPs
+after redeployment, so a queue entry does not prove that the current VM is
+configured.
+
+For an existing deployment, deploy the updated Function App code and set
+`MONITOR_CLUSTER` to `YES` in its application settings to enable periodic live
+checks. When `MONITOR_CLUSTER=NO`, all-node requests use the queue to skip
+previously configured IPs.

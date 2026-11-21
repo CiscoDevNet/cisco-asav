@@ -87,11 +87,8 @@ def main(req: func.HttpRequest):
                     log.error("ConfigureASAv:: VM {} is not in running state.".format(vm_list[vm]['MgmtPublic']))
                     return func.HttpResponse("ERROR", status_code=500)
 
-                if asa_public_ip in configured_asav:
-                    log.info("ConfigureASAv:: Cluster is already enabled on the ASAv instance {}".format(
-                        vm_list[vm]['MgmtPublic']))
-                    return func.HttpResponse("SUCCESS", status_code=200)
-
+                # Azure can reuse a public IP after redeployment. Validate the
+                # current VM even if its IP is already in the configured queue.
                 vm_to_configure = vm_list[vm]
 
         if vm_to_configure is None:
